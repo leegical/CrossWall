@@ -6,6 +6,6 @@ services:
     container_name: chat-acada
     restart: always
     ports:
-      - "3006:3006"
+      - "3001:3006"
     volumes:
       - "./config.py:/gpt/config.py"

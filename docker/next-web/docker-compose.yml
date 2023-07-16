@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  chatgpt:
+    image: yidadaa/chatgpt-next-web # 总是使用 latest ,更新时重新 pull 该 tag 镜像即可
+    ports:
+      - 3000:3000
+    restart: always
+    container_name: next-web
+    environment:
+    # 将下面的API_KEY 替换成你自己的
+      - OPENAI_API_KEY=sk-FO8crh25li2dFuZnxxxxxxlbkFJKPLGMCF8HvUBqvxxxx
+      - CODE=
