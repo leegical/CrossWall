@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  chat-acada:
+    image: cxgup/chatgpt_academic:latest
+    container_name: chat-acada
+    restart: always
+    ports:
+      - "3006:3006"
+    volumes:
+      - "./config.py:/gpt/config.py"
