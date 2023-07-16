@@ -1,0 +1,138 @@
+{
+    "api": {
+        "services": [
+            "HandlerService",
+            "LoggerService",
+            "StatsService"
+        ],
+        "tag": "api"
+    },
+    "inbounds": [
+        {
+            "listen": "127.0.0.1",
+            "port": 62789,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "127.0.0.1"
+            },
+            "tag": "api"
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "settings": {}
+        },
+        {
+            "tag": "wireguard",
+            "protocol": "wireguard",
+            "settings": {
+                "secretKey": "mGCTM66rSNfW1/HdL5Si/PqFzJ6eDOeR+8Ji3AmvvXE=",
+                "address": [
+                    "172.16.0.2/32",
+                    "2606:4700:110:8c05:7f7e:15bd:1a36:e1d4/128"
+                ],
+                "peers": [
+                    {
+                        "publicKey": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+                        "allowedIPs": [
+                            "0.0.0.0/0",
+                            "::/0"
+                        ],
+                        "endpoint": "engage.cloudflareclient.com:2408"
+                    }
+                ],
+                "mtu": 1280,
+                "reserved": [
+                    240,
+                    253,
+                    185
+                ]
+            }
+        },
+        {
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv4"
+            },
+            "proxySettings": {
+                "tag": "wireguard"
+            },
+            "tag": "warp-IPv4"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv6"
+            },
+            "proxySettings": {
+                "tag": "wireguard"
+            },
+            "tag": "warp-IPv6"
+        },
+        {
+            "protocol": "blackhole",
+            "settings": {},
+            "tag": "blocked"
+        }
+    ],
+    "policy": {
+        "system": {
+            "statsInboundDownlink": true,
+            "statsInboundUplink": true
+        }
+    },
+    "routing": {
+        "domainStrategy": "AsIs",
+        "rules": [
+            {
+                "type": "field",
+                "domain": [
+                    "geosite:openai",
+                    "geosite:bing",
+                    "ip.gs"
+                ],
+                "outboundTag": "warp-IPv4"
+            },
+            {
+                "type": "field",
+                "domain": [
+                    "geosite:netflix",
+                    "geosite:disney",
+                    "freenom.com",
+                    "p3terx.com"
+                ],
+                "outboundTag": "warp-IPv6"
+            },
+            {
+                "inboundTag": [
+                    "api"
+                ],
+                "outboundTag": "api",
+                "type": "field"
+            },
+            {
+                "ip": [
+                    "geoip:private"
+                ],
+                "outboundTag": "blocked",
+                "type": "field"
+            }
+        ]
+    },
+    "dns": {
+        "servers": [
+            "1.1.1.1",
+            "8.8.8.8",
+            {
+                "address": "4.4.4.4",
+                "port": 53,
+                "domains": [
+                    "geosite:netflix",
+                    "geosite:disney"
+                ]
+            }
+        ]
+    },
+    "stats": {}
+}
