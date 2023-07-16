@@ -7,7 +7,7 @@
 
 ## 准备工作
 以Ubuntu22.04 LTS为例
-1. 确保服务器有docker环境。在当前文件夹中启动终端，执行以下命令安装：
+1. 确保服务器有docker环境。如果没有，则在当前文件夹中启动终端，执行以下命令安装：
 ```bash
 sudo bash -c bash
 chmod +x install-docker.sh
