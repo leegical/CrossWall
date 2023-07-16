@@ -13,3 +13,8 @@ CROSSWALL
 │  └─paper
 └─Tips  一些使用技巧
 ```
+## TODO
+1. 使用cloudflare解析域名
+2. Caddy配置
+3. http2伪装
+4. 使用cloudflare cdn伪装ipv4
