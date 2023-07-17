@@ -10,7 +10,6 @@ prompt_api_key() {
         elif [[ "$api_key" =~ ^sk- && ${#api_key} -gt 20 ]]; then
             export API_KEY="$api_key"
             echo "已设置OpenAI API key为: $API_KEY"
-            echo "将使用 $API_KEY 构建服务......"
             break
         else
             echo "输入的API key不合法，请重新输入: "
@@ -36,6 +35,7 @@ set_api_key() {
 
 isolate_set=0
 # 主逻辑
+echo ""
 read -p "是否为每个服务单独设置API key？（输入y或Y进入单独设置模式）: " isolate
 if [[ "$isolate" =~ ^[yY]$ ]]; then
     isolate_set=1
@@ -67,12 +67,13 @@ for dir in $directories; do
         sublocalport=$(grep -Po '\d+:300\d' docker-compose.yml | grep -oE '[0-9]+' | head -n 1)
         # 获取当前文件夹的名称
         subdirname=$(basename "$(pwd)")
+        echo ""
         echo "进入 $(pwd)，构建 $subdirname 服务......"
         if [[ "$isolate_set" -eq 1 ]]; then
             # 为当前服务设置单独的API
             set_api_key
         fi
-        sed -i "s/API_KEY: .*/API_KEY: \"$API_KEY\"/g" docker-compose.yml
+        sed -i "s/API_KEY: .*/API_KEY: $API_KEY/g" docker-compose.yml
         docker-compose up -d
         # 打印服务信息
         echo "请访问 $localip:$sublocalport 来使用 $subdirname 服务"
