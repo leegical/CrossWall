@@ -16,8 +16,8 @@ wget https://raw.githubusercontent.com/binary-husky/chatgpt_academic/master/conf
 # 把下面的换成你自己的API key
 OPENAI_API_KEY=sk-fxXfxUOOKCxH5zCDvMAGT3BlxkFJ2rbuCu255JF9Z4pw3YIx
 
-sed -i "s/API_KEY = \"sk-.*\"/API_KEY = \"$OPENAI_API_KEY\"/g" config.py
-sed -i 's/WEB_PORT = -1/WEB_PORT = 3006/g' config.py
+sed -i "s/^API_KEY = \".*\"/API_KEY = \"$OPENAI_API_KEY\"/g" config.py
+sed -i 's/^WEB_PORT = .*/WEB_PORT = 3006/g' config.py
 # 注意，如果你是未绑定信用卡的免费用户，那么不要执行下面这条命令
 sed -i 's/DEFAULT_WORKER_NUM = 3/DEFAULT_WORKER_NUM = 1800/g' config.py
 

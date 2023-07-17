@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# 注意，本脚本只在Ubuntu22.04LTS上测试通过
 apt update && apt upgrade -y
 # 添加使用 HTTPS 传输的软件包以及 CA 证书
 apt install apt-transport-https ca-certificates curl software-properties-common gnupg lsb-release -y
