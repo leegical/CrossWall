@@ -10,10 +10,10 @@ services:
     environment:
       # 请查阅 https://github.com/binary-husky/gpt_academic/blob/master/config.py 以查看所有的配置信息
       # 把下面的换成你自己的API key
-      API_KEY:                  '    sk-AgBbKwpRxZxxaJqbyGPxx3BlbkFJxxx6rmwRH6fng2lRlqSX                                          '
-      LLM_MODEL:                '    gpt-3.5-turbo                                                                                '
-      AVAIL_LLM_MODELS:         '    ["gpt-3.5-turbo", "api2d-gpt-3.5-turbo", "gpt-4", "api2d-gpt-4", "newbing"]                  '
-      WEB_PORT:                 '    3006                                                                                         '
-      AUTO_CLEAR_TXT:           '    True                                                                                         '
+      API_KEY: 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
+      LLM_MODEL: gpt-3.5-turbo
+      AVAIL_LLM_MODELS: '["gpt-3.5-turbo", "api2d-gpt-3.5-turbo", "gpt-4", "api2d-gpt-4", "newbing"]'
+      WEB_PORT: 3006
+      AUTO_CLEAR_TXT: 'True'
       # 一言以蔽之：免费（5刀）用户填3, Pay-as-you-go users填3500
-      DEFAULT_WORKER_NUM:       '    3500                                                                                         '
+      DEFAULT_WORKER_NUM: 3500

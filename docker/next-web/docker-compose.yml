@@ -9,5 +9,4 @@ services:
     container_name: next-web
     environment:
     # 将下面的API_KEY 替换成你自己的
-      - OPENAI_API_KEY=sk-FO8crh25li2dFuZnxxxxxxlbkFJKPLGMCF8HvUBqvxxxx
-      - CODE=
+      OPENAI_API_KEY: sk-FO8crh25li2dFuZnxxxxxxlbkFJKPLGMCF8HvUBqvxxxx
