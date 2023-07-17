@@ -1,6 +1,6 @@
 #!/bin/bash
 
-proj_dir=$(pwd)
+# proj_dir=$(pwd)
 docker rm -f chat-web
 docker rm -f next-web
 docker rm -f chat-acada
@@ -9,22 +9,10 @@ docker pull chenzhaoyu94/chatgpt-web
 docker pull yidadaa/chatgpt-next-web
 docker pull cxgup/chatgpt_academic
 
-cd $proj_dir/paper
-rm -rf config.py
-wget https://raw.githubusercontent.com/binary-husky/chatgpt_academic/master/config.py
-
-# 把下面的换成你自己的API key
-OPENAI_API_KEY=sk-fxXfxUOOKCxH5zCDvMAGT3BlxkFJ2rbuCu255JF9Z4pw3YIx
-
-sed -i "s/^API_KEY = \".*\"/API_KEY = \"$OPENAI_API_KEY\"/g" config.py
-sed -i 's/^WEB_PORT = .*/WEB_PORT = 3006/g' config.py
-# 注意，如果你是未绑定信用卡的免费用户，那么不要执行下面这条命令
-sed -i 's/DEFAULT_WORKER_NUM = 3/DEFAULT_WORKER_NUM = 1800/g' config.py
-
 # 获取本机的ipv4地址
 localip=$(hostname -I | awk '{print $1}')
 
-cd $proj_dir
+# cd $proj_dir
 # Get a list of all directories in the current directory
 directories=$(find . -maxdepth 1 -type d)
 
