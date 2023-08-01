@@ -27,10 +27,10 @@
             "tag": "wireguard",
             "protocol": "wireguard",
             "settings": {
-                "secretKey": "mGCTM66rSNfW1/HdL5Si/PqFzJ6eDOeR+8Ji3AmvvXE=",
+                "secretKey": "QKAVq+frGs1lgjdnZ1eQQzwiX2YFIVMwhl0mvIqSaXg=",
                 "address": [
                     "172.16.0.2/32",
-                    "2606:4700:110:8c05:7f7e:15bd:1a36:e1d4/128"
+                    "2606:4700:110:8344:8e11:5217:e099:6e55/128"
                 ],
                 "peers": [
                     {
@@ -44,9 +44,9 @@
                 ],
                 "mtu": 1280,
                 "reserved": [
-                    240,
-                    253,
-                    185
+                    203,
+                    235,
+                    222
                 ]
             }
         },
@@ -100,6 +100,7 @@
                     "geosite:netflix",
                     "geosite:disney",
                     "freenom.com",
+                    "cloudflare.com",
                     "p3terx.com"
                 ],
                 "outboundTag": "warp-IPv6"
