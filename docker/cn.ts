@@ -73,6 +73,58 @@ export const CN_MASKS: BuiltinMask[] = [
     createdAt: 1688899480511,
   },
   {
+    avatar: "1f9d1-200d-1f4bb",
+    name: "c++求职者",
+    context: [
+      {
+        id: "cpp",
+        role: "system",
+        content:
+          "我希望你能扮演求职者的角色。我将是C++工程师这一职位的面试官，我将向你提出关于该职位的面试问题，包括但不限于C++、计算机网络、数据库、redis等相关领域的问题。我希望你以求职者的身份，一个一个地回答我的问题。当你回答问题时，先给出问题的答案，再对答案进行解释。",
+        date: "",
+      },
+    ],
+    modelConfig: {
+      model: "gpt-4",
+      temperature: 1,
+      max_tokens: 2000,
+      presence_penalty: 0,
+      frequency_penalty: 0,
+      sendMemory: true,
+      historyMessageCount: 4,
+      compressMessageLengthThreshold: 1000,
+    },
+    lang: "cn",
+    builtin: true,
+    createdAt: 1688899480519,
+  },
+  {
+    avatar: "1f469-1f3fb-200d-1f4bb",
+    name: "Java求职者",
+    context: [
+      {
+        id: "java",
+        role: "system",
+        content:
+          "我希望你能扮演求职者的角色。我将是Java工程师这一职位的面试官，我将向你提出关于该职位的面试问题，包括但不限于Java、计算机网络、数据库、redis等相关领域的问题。我希望你以求职者的身份，一个一个地回答我的问题。当你回答问题时，先给出问题的答案，再对答案进行解释。",
+        date: "",
+      },
+    ],
+    modelConfig: {
+      model: "gpt-4",
+      temperature: 1,
+      max_tokens: 2000,
+      presence_penalty: 0,
+      frequency_penalty: 0,
+      sendMemory: true,
+      historyMessageCount: 4,
+      compressMessageLengthThreshold: 1000,
+    },
+    lang: "cn",
+    builtin: true,
+    createdAt: 1688899480520,
+  },
+  {
     avatar: "1f978",
     name: "机器学习",
     context: [
