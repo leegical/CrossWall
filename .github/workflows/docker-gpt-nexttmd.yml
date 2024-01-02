@@ -34,7 +34,7 @@ jobs:
 
       - name: Get current date
         id: date
-        run: echo "::set-output name=today::$(date +'%Y-%m-%d_%H-%M')"
+        run: echo "version_today=$(date +'%y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -53,8 +53,8 @@ jobs:
         run: |
           git submodule update --init --recursive
           git submodule update --remote --merge docker/3rd/ChatGPT-Next-Web
-          cd ./docker/3rd/ChatGPT-Next-Web/public && rm -rf prompts.json && wget https://raw.githubusercontent.com/leegical/CrossWall/main/docker/prompts.json
-          cd ../app/masks && rm -rf cn.ts && wget https://raw.githubusercontent.com/leegical/CrossWall/main/docker/cn.ts
+          cd ./docker/3rd/ChatGPT-Next-Web/public && rm -rf prompts.json && wget https://raw.githubusercontent.com/leegical/CrossWall/main/docker/prompts.json && pwd && ll -h
+          cd ../app/masks && rm -rf cn.ts && wget https://raw.githubusercontent.com/leegical/CrossWall/main/docker/cn.ts && pwd && ll -h
 
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -68,8 +68,8 @@ jobs:
           # docker build arg, 注入 APP_NAME/APP_VERSION
           build-args: |
             APP_NAME=${{ env.APP_NAME }}
-            APP_VERSION=${{ steps.date.outputs.today }}
+            APP_VERSION=${{ steps.date.outputs.version_today }}
           # 给清单打上多个标签
           tags: |
-            ${{ env.DOCKERHUB_REPO }}:${{ steps.date.outputs.today }}
+            ${{ env.DOCKERHUB_REPO }}:${{ steps.date.outputs.version_today }}
             ${{ env.DOCKERHUB_REPO }}:latest
