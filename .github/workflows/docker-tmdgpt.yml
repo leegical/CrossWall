@@ -51,6 +51,7 @@ jobs:
 
       - name: Update ChatGPT-Next-Web
         run: |
+          git submodule update --init --recursive
           git submodule update --remote --merge docker/3rd/ChatGPT-Next-Web
           cd ./docker/3rd/ChatGPT-Next-Web/public && rm -rf prompts.json && wget https://raw.githubusercontent.com/leegical/CrossWall/main/docker/prompts.json
           cd ../app/masks && rm -rf cn.ts && wget https://raw.githubusercontent.com/leegical/CrossWall/main/docker/cn.ts
