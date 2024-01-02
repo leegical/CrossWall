@@ -1,0 +1,6 @@
+[submodule "docker/3rd/ChatGPT-Next-Web"]
+	path = docker/3rd/ChatGPT-Next-Web
+	url = https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web.git
+[submodule "docker/3rd/gpt_academic"]
+	path = docker/3rd/gpt_academic
+	url = https://github.com/binary-husky/gpt_academic.git
