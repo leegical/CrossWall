@@ -4185,7 +4185,7 @@ __name(SignJWT, "SignJWT");
 var import_tweetnacl = __toESM(require_nacl_fast());
 
 // src/helpers/init.js
-var defaultProxyIP = "cdn-b100.xn--b6gac.eu.org";
+var defaultProxyIP = "bpb.yousef.isegaro.com";
 var userID;
 var dohURL;
 var proxyIP;
@@ -4199,7 +4199,7 @@ var client;
 var pathName;
 function initParams(request, env) {
   const proxyIPs = env.PROXYIP?.split(",").map((proxyIP2) => proxyIP2.trim());
-  userID = env.UUID || "f45eb451-d33c-4e1a-a934-8350089cf107";
+  userID = env.UUID || "89b3cbba-e6ac-485a-9481-976a0415eab9";
   if (!isValidUUID(userID))
     throw new Error(`Invalid UUID: ${userID}`);
   dohURL = env.DOH_URL || "https://cloudflare-dns.com/dns-query";
