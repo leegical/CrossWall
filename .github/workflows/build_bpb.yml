@@ -1,4 +1,4 @@
-name: Build and Deploy Worker
+name: Build BPB Worker
 
 on:
   push:
@@ -26,27 +26,27 @@ jobs:
 
       - name: Clone BPB project
         run: |
-          cd worker
+          cd worker/bpb
           git clone https://github.com/bia-pain-bache/BPB-Worker-Panel.git
           cd BPB-Worker-Panel
 
       - name: Install dependencies
         run: |
-          cd worker/BPB-Worker-Panel
+          cd worker/bpb/BPB-Worker-Panel
           npm install
 
       - name: Build project
         run: |
-          cd worker/BPB-Worker-Panel
+          cd worker/bpb/BPB-Worker-Panel
           npx wrangler deploy src/worker.js --name bpb-worker-panel --compatibility-flag [nodejs_compat] --compatibility-date 2024-10-26 --dry-run --outdir=dist
           cp -f dist/worker.js ../origin.js
           cd ..
           rm -rf BPB-Worker-Panel
       
-      - name: Obfuscate worker js
+      - name: Obfuscate BPB worker js
         run: |
           npm install -g javascript-obfuscator
-          javascript-obfuscator worker/origin.js --output worker/_worker.js \
+          javascript-obfuscator worker/bpb/origin.js --output worker/bpb/_worker.js \
           --compact true \
           --control-flow-flattening true \
           --control-flow-flattening-threshold 1 \
