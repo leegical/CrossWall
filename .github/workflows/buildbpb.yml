@@ -1,0 +1,49 @@
+name: Build and Deploy Worker
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+        # Runs everyday at 1:00 AM
+        - cron: "0 1 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "latest"
+
+      - name: Clone BPB project
+        run: |
+          cd worker
+          git clone https://github.com/bia-pain-bache/BPB-Worker-Panel.git
+          cd BPB-Worker-Panel
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: |
+          npx wrangler deploy src/worker.js --name bpb-worker-panel --compatibility-flag [nodejs_compat] --compatibility-date 2024-10-26 --dry-run --outdir=dist
+          cp -f dist/worker.js ../origin.js
+          cd ..
+          rm -rf BPB-Worker-Panel
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          branch: main
+          commit_message: ':arrow_up: update latest bpb worker'
+          commit_author: 'github-actions[bot] <github-actions[bot]@users.noreply.github.com>'
+          push_options: '--set-upstream'
