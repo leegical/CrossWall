@@ -45,6 +45,7 @@ jobs:
       
       - name: Obfuscate worker js
         run: |
+          npm install -g javascript-obfuscator
           javascript-obfuscator worker/origin.js --output worker/_worker.js \
           --compact true \
           --control-flow-flattening true \
