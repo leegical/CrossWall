@@ -2917,9 +2917,6 @@ var require_sha256 = __commonJS({
   }
 });
 
-// src/protocols/vless.js
-import { connect } from "cloudflare:sockets";
-
 // node_modules/jose/dist/browser/runtime/webcrypto.js
 var webcrypto_default = crypto;
 var isCryptoKey = /* @__PURE__ */ __name((key) => key instanceof CryptoKey, "isCryptoKey");
@@ -4184,54 +4181,15 @@ __name(SignJWT, "SignJWT");
 // src/authentication/auth.js
 var import_tweetnacl = __toESM(require_nacl_fast());
 
-// src/helpers/init.js
-var defaultProxyIP = "bpb.yousef.isegaro.com";
-var userID;
-var dohURL;
-var proxyIP;
-var trojanPassword;
-var defaultHttpPorts;
-var defaultHttpsPorts;
-var panelVersion;
-var hostName;
-var origin;
-var client;
-var pathName;
-function initParams(request, env) {
-  const proxyIPs = env.PROXYIP?.split(",").map((proxyIP2) => proxyIP2.trim());
-  userID = env.UUID || "89b3cbba-e6ac-485a-9481-976a0415eab9";
-  if (!isValidUUID(userID))
-    throw new Error(`Invalid UUID: ${userID}`);
-  dohURL = env.DOH_URL || "https://cloudflare-dns.com/dns-query";
-  proxyIP = proxyIPs ? proxyIPs[Math.floor(Math.random() * proxyIPs.length)] : defaultProxyIP;
-  trojanPassword = env.TROJAN_PASS || "Azihao131bit-trojan";
-  defaultHttpPorts = ["80", "8080", "2052", "2082", "2086", "2095", "8880"];
-  defaultHttpsPorts = ["443", "8443", "2053", "2083", "2087", "2096"];
-  panelVersion = "2.7.4";
-  hostName = request.headers.get("Host");
-  const url = new URL(request.url);
-  const searchParams = new URLSearchParams(url.search);
-  client = searchParams.get("app");
-  origin = url.origin;
-  pathName = url.pathname;
-}
-__name(initParams, "initParams");
-function initializeParams(request, env) {
-  initParams(request, env);
-  return Promise.resolve();
-}
-__name(initializeParams, "initializeParams");
-
 // src/pages/login.js
-async function renderLoginPage(request, env) {
-  await initializeParams(request, env);
+async function renderLoginPage() {
   const loginPage = `
     <!DOCTYPE html>
     <html lang="en">
     <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Login</title>
+    <title>BPB Login</title>
     <style>
         :root {
             --color: black;
@@ -4327,7 +4285,7 @@ async function renderLoginPage(request, env) {
     </head>
     <body>
         <div class="container">
-            <h1>BPB Panel <span style="font-size: smaller;">${panelVersion}</span> \u{1F4A6}</h1>
+            <h1>BPB Panel <span style="font-size: smaller;">${globalThis.panelVersion}</span> \u{1F4A6}</h1>
             <div class="form-container">
                 <h2>User Login</h2>
                 <form id="loginForm">
@@ -4373,7 +4331,7 @@ async function renderLoginPage(request, env) {
     status: 200,
     headers: {
       "Content-Type": "text/html;charset=utf-8",
-      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Origin": globalThis.urlOrigin,
       "Access-Control-Allow-Methods": "GET, POST",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "X-Content-Type-Options": "nosniff",
@@ -4386,77 +4344,19 @@ async function renderLoginPage(request, env) {
 }
 __name(renderLoginPage, "renderLoginPage");
 
-// src/pages/error.js
-async function renderErrorPage(request, env, message2, error, refer) {
-  await initializeParams(request, env);
-  const errorPage = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Error Page</title>
-        <style>
-            :root {
-                --color: black;
-                --header-color: #09639f; 
-                --background-color: #fff;
-                --border-color: #ddd;
-                --header-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
-            }
-            body, html {
-                height: 100%;
-                width: 100%;
-                margin: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                font-family: system-ui;
-                color: var(--color);
-                background-color: var(--background-color);
-            }
-            body.dark-mode {
-                --color: white;
-                --header-color: #3498DB; 
-                --background-color: #121212;
-                --header-shadow: 2px 2px 4px rgba(255, 255, 255, 0.25);          
-            }
-            h1 { font-size: 2.5rem; text-align: center; color: var(--header-color); text-shadow: var(--header-shadow); }
-            #error-container { text-align: center; }
-        </style>
-    </head>
-    <body>
-        <div id="error-container">
-            <h1>BPB Panel <span style="font-size: smaller;">${panelVersion}</span> \u{1F4A6}</h1>
-            <div id="error-message">
-                <h2>${message2} ${refer ? 'Please try again or refer to <a href="https://github.com/bia-pain-bache/BPB-Worker-Panel/blob/main/README.md">documents</a>' : ""}
-                </h2>
-                <p><b>${error ? `\u26A0\uFE0F ${error.stack.toString()}` : ""}</b></p>
-            </div>
-        </div>
-    <script>
-        localStorage.getItem('darkMode') === 'enabled' && document.body.classList.add('dark-mode');
-    <\/script>
-    </body>
-    </html>`;
-  return new Response(errorPage, { status: 200, headers: { "Content-Type": "text/html" } });
-}
-__name(renderErrorPage, "renderErrorPage");
-
 // src/authentication/auth.js
 async function generateJWTToken(request, env) {
-  await initializeParams(request, env);
   const password = await request.text();
-  const savedPass = await env.obobob.get("pwd");
+  const savedPass = await env.kv.get("pwd");
   if (password !== savedPass)
     return new Response("Method Not Allowed", { status: 405 });
-  let secretKey = await env.obobob.get("secretKey");
+  let secretKey = await env.kv.get("secretKey");
   if (!secretKey) {
     secretKey = generateSecretKey();
-    await env.obobob.put("secretKey", secretKey);
+    await env.kv.put("secretKey", secretKey);
   }
   const secret = new TextEncoder().encode(secretKey);
-  const jwtToken = await new SignJWT({ userID }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("24h").sign(secret);
+  const jwtToken = await new SignJWT({ userID: globalThis.userID }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("24h").sign(secret);
   return new Response("Success", {
     status: 200,
     headers: {
@@ -4472,7 +4372,22 @@ function generateSecretKey() {
 }
 __name(generateSecretKey, "generateSecretKey");
 async function Authenticate(request, env) {
-  return true;
+  try {
+    const secretKey = await env.kv.get("secretKey");
+    const secret = new TextEncoder().encode(secretKey);
+    const cookie = request.headers.get("Cookie")?.match(/(^|;\s*)jwtToken=([^;]*)/);
+    const token = cookie ? cookie[2] : null;
+    if (!token) {
+      console.log("Unauthorized: Token not available!");
+      return false;
+    }
+    const { payload } = await jwtVerify(token, secret);
+    console.log(`Successfully authenticated, User ID: ${payload.userID}`);
+    return true;
+  } catch (error) {
+    console.log(error);
+    return false;
+  }
 }
 __name(Authenticate, "Authenticate");
 function logout() {
@@ -4487,13 +4402,13 @@ function logout() {
 __name(logout, "logout");
 async function resetPassword(request, env) {
   let auth = await Authenticate(request, env);
-  const oldPwd = await env.obobob.get("pwd");
+  const oldPwd = await env.kv.get("pwd");
   if (oldPwd && !auth)
     return new Response("Unauthorized!", { status: 401 });
   const newPwd = await request.text();
   if (newPwd === oldPwd)
     return new Response("Please enter a new Password!", { status: 400 });
-  await env.obobob.put("pwd", newPwd);
+  await env.kv.put("pwd", newPwd);
   return new Response("Success", {
     status: 200,
     headers: {
@@ -4504,15 +4419,12 @@ async function resetPassword(request, env) {
 }
 __name(resetPassword, "resetPassword");
 async function login(request, env) {
-  await initializeParams(request, env);
-  if (typeof env.obobob !== "object")
-    return await renderErrorPage(request, env, "KV Dataset is not properly set!", null, true);
   const auth = await Authenticate(request, env);
   if (auth)
-    return Response.redirect(`${origin}/panel`, 302);
+    return Response.redirect(`${globalThis.urlOrigin}/panel`, 302);
   if (request.method === "POST")
     return await generateJWTToken(request, env);
-  return await renderLoginPage(request, env);
+  return await renderLoginPage();
 }
 __name(login, "login");
 
@@ -4572,7 +4484,7 @@ async function fetchWarpConfigs(env, proxySettings) {
     }
   }
   const configs = JSON.stringify(warpConfigs);
-  await env.obobob.put("warpConfigs", configs);
+  await env.kv.put("warpConfigs", configs);
   return { error: null, configs };
 }
 __name(fetchWarpConfigs, "fetchWarpConfigs");
@@ -4590,14 +4502,10 @@ var generateKeyPair = /* @__PURE__ */ __name(() => {
 
 // src/kv/handlers.js
 async function getDataset(request, env) {
-  await initializeParams(request, env);
   let proxySettings, warpConfigs;
-  if (typeof env.obobob !== "object") {
-    return { kvNotFound: true, proxySettings: null, warpConfigs: null };
-  }
   try {
-    proxySettings = await env.obobob.get("proxySettings", { type: "json" });
-    warpConfigs = await env.obobob.get("warpConfigs", { type: "json" });
+    proxySettings = await env.kv.get("proxySettings", { type: "json" });
+    warpConfigs = await env.kv.get("warpConfigs", { type: "json" });
   } catch (error) {
     console.log(error);
     throw new Error(`An error occurred while getting KV - ${error}`);
@@ -4609,25 +4517,23 @@ async function getDataset(request, env) {
       throw new Error(`An error occurred while getting Warp configs - ${error}`);
     warpConfigs = configs;
   }
-  if (panelVersion !== proxySettings.panelVersion)
+  if (globalThis.panelVersion !== proxySettings.panelVersion)
     proxySettings = await updateDataset(request, env);
-  return { kvNotFound: false, proxySettings, warpConfigs };
+  return { proxySettings, warpConfigs };
 }
 __name(getDataset, "getDataset");
 async function updateDataset(request, env) {
-  await initializeParams(request, env);
   let newSettings = request.method === "POST" ? await request.formData() : null;
   const isReset = newSettings?.get("resetSettings") === "true";
   let currentSettings;
   if (!isReset) {
     try {
-      currentSettings = await env.obobob.get("proxySettings", { type: "json" });
+      currentSettings = await env.kv.get("proxySettings", { type: "json" });
     } catch (error) {
       console.log(error);
       throw new Error(`An error occurred while getting current KV settings - ${error}`);
     }
   } else {
-    await env.obobob.delete("warpConfigs");
     newSettings = null;
   }
   const validateField = /* @__PURE__ */ __name((field) => {
@@ -4662,7 +4568,7 @@ async function updateDataset(request, env) {
     remoteDNS,
     resolvedRemoteDNS,
     localDNS: validateField("localDNS") ?? currentSettings?.localDNS ?? "8.8.8.8",
-    vlessTrojanFakeDNS: validateField("vlessTrojanFakeDNS") ?? currentSettings?.vlessTrojanFakeDNS ?? false,
+    VLTRFakeDNS: validateField("VLTRFakeDNS") ?? currentSettings?.VLTRFakeDNS ?? false,
     proxyIP: validateField("proxyIP")?.replaceAll(" ", "") ?? currentSettings?.proxyIP ?? "",
     outProxy: validateField("outProxy") ?? currentSettings?.outProxy ?? "",
     outProxyParams: extractChainProxyParams(validateField("outProxy")) ?? currentSettings?.outProxyParams ?? {},
@@ -4671,9 +4577,9 @@ async function updateDataset(request, env) {
     customCdnAddrs: validateField("customCdnAddrs")?.replaceAll(" ", "") ?? currentSettings?.customCdnAddrs ?? "",
     customCdnHost: validateField("customCdnHost")?.trim() ?? currentSettings?.customCdnHost ?? "",
     customCdnSni: validateField("customCdnSni")?.trim() ?? currentSettings?.customCdnSni ?? "",
-    bestVLESSTrojanInterval: validateField("bestVLESSTrojanInterval") ?? currentSettings?.bestVLESSTrojanInterval ?? "30",
-    vlessConfigs: validateField("vlessConfigs") ?? currentSettings?.vlessConfigs ?? true,
-    trojanConfigs: validateField("trojanConfigs") ?? currentSettings?.trojanConfigs ?? false,
+    bestVLTRInterval: validateField("bestVLTRInterval") ?? currentSettings?.bestVLTRInterval ?? "30",
+    VLConfigs: validateField("VLConfigs") ?? currentSettings?.VLConfigs ?? true,
+    TRConfigs: validateField("TRConfigs") ?? currentSettings?.TRConfigs ?? false,
     ports: validateField("ports")?.split(",") ?? currentSettings?.ports ?? ["443"],
     lengthMin: validateField("fragmentLengthMin") ?? currentSettings?.lengthMin ?? "100",
     lengthMax: validateField("fragmentLengthMax") ?? currentSettings?.lengthMax ?? "200",
@@ -4702,10 +4608,12 @@ async function updateDataset(request, env) {
     noiseSizeMax: validateField("noiseSizeMax") ?? currentSettings?.noiseSizeMax ?? "10",
     noiseDelayMin: validateField("noiseDelayMin") ?? currentSettings?.noiseDelayMin ?? "1",
     noiseDelayMax: validateField("noiseDelayMax") ?? currentSettings?.noiseDelayMax ?? "1",
-    panelVersion
+    panelVersion: globalThis.panelVersion
   };
   try {
-    await env.obobob.put("proxySettings", JSON.stringify(proxySettings));
+    await env.kv.put("proxySettings", JSON.stringify(proxySettings));
+    if (isReset)
+      await updateWarpConfigs(request, env);
   } catch (error) {
     console.log(error);
     throw new Error(`An error occurred while updating KV - ${error}`);
@@ -4748,9 +4656,7 @@ async function updateWarpConfigs(request, env) {
     return new Response("Unauthorized", { status: 401 });
   if (request.method === "POST") {
     try {
-      const { kvNotFound, proxySettings } = await getDataset(request, env);
-      if (kvNotFound)
-        return await renderErrorPage(request, env, "KV Dataset is not properly set!", null, true);
+      const { proxySettings } = await getDataset(request, env);
       const { error: warpPlusError } = await fetchWarpConfigs(env, proxySettings);
       if (warpPlusError)
         return new Response(warpPlusError, { status: 400 });
@@ -4766,22 +4672,21 @@ async function updateWarpConfigs(request, env) {
 __name(updateWarpConfigs, "updateWarpConfigs");
 
 // src/pages/home.js
-async function renderHomePage(request, env, proxySettings, isPassSet) {
-  await initializeParams(request, env);
+async function renderHomePage(proxySettings, isPassSet) {
   const {
     remoteDNS,
     localDNS,
-    vlessTrojanFakeDNS,
-    proxyIP: proxyIP2,
+    VLTRFakeDNS,
+    proxyIP,
     outProxy,
     cleanIPs,
     enableIPv6,
     customCdnAddrs,
     customCdnHost,
     customCdnSni,
-    bestVLESSTrojanInterval,
-    vlessConfigs,
-    trojanConfigs,
+    bestVLTRInterval,
+    VLConfigs,
+    TRConfigs,
     ports,
     lengthMin,
     lengthMax,
@@ -4812,13 +4717,9 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
     customBlockRules
   } = proxySettings;
   const isWarpPlus = warpPlusLicense ? true : false;
-  const activeProtocols = (vlessConfigs ? 1 : 0) + (trojanConfigs ? 1 : 0);
+  const activeProtocols = (VLConfigs ? 1 : 0) + (TRConfigs ? 1 : 0);
   let httpPortsBlock = "", httpsPortsBlock = "";
-  const allPorts = [...hostName.includes("workers.dev") ? defaultHttpPorts : [], ...defaultHttpsPorts];
-  const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
-  const countryCode = request.cf.country;
-  const flag = String.fromCodePoint(...[...countryCode].map((c) => 127462 + c.charCodeAt(0) - 65));
-  const cfCountry = `${regionNames.of(countryCode)} ${flag}`;
+  const allPorts = [...globalThis.hostName.includes("workers.dev") ? globalThis.defaultHttpPorts : [], ...globalThis.defaultHttpsPorts];
   allPorts.forEach((port) => {
     const id = `port-${port}`;
     const isChecked = ports.includes(port) ? "checked" : "";
@@ -4827,7 +4728,7 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
                 <input type="checkbox" id=${id} name=${port} onchange="handlePortChange(event)" value="true" ${isChecked}>
                 <label style="margin-bottom: 3px;" for=${id}>${port}</label>
             </div>`;
-    defaultHttpsPorts.includes(port) ? httpsPortsBlock += portBlock : httpPortsBlock += portBlock;
+    globalThis.defaultHttpsPorts.includes(port) ? httpsPortsBlock += portBlock : httpPortsBlock += portBlock;
   });
   const supportedApps = /* @__PURE__ */ __name((apps) => apps.map((app) => `
         <div>
@@ -4835,14 +4736,14 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
             <span>${app}</span>
         </div>`).join(""), "supportedApps");
   const subQR = /* @__PURE__ */ __name((path, app, tag2, title, sbType) => {
-    const url = `${sbType ? "sing-box://import-remote-profile?url=" : ""}https://${hostName}/${path}/${userID}${app ? `?app=${app}` : ""}#${tag2}`;
+    const url = `${sbType ? "sing-box://import-remote-profile?url=" : ""}https://${globalThis.hostName}/${path}/${globalThis.userID}${app ? `?app=${app}` : ""}#${tag2}`;
     return `
             <button onclick="openQR('${url}', '${title}')" style="margin-bottom: 8px;">
                 QR Code&nbsp;<span class="material-symbols-outlined">qr_code</span>
             </button>`;
   }, "subQR");
   const subURL = /* @__PURE__ */ __name((path, app, tag2) => {
-    const url = `https://${hostName}/${path}/${userID}${app ? `?app=${app}` : ""}#${tag2}`;
+    const url = `https://${globalThis.hostName}/${path}/${globalThis.userID}${app ? `?app=${app}` : ""}#${tag2}`;
     return `
             <button onclick="copyToClipboard('${url}')">
                 Copy Sub<span class="material-symbols-outlined">format_list_bulleted</span>
@@ -4855,7 +4756,7 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="timestamp" content=${Date.now()}>
-        <title>BPB Panel ${panelVersion}</title>
+        <title>BPB Panel ${globalThis.panelVersion}</title>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
         <title>Collapsible Sections</title>
@@ -5153,7 +5054,7 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
         </style>
     </head>
     <body>
-        <h1>BPB Panel <span style="font-size: smaller;">${panelVersion}</span> \u{1F4A6}</h1>
+        <h1>BPB Panel <span style="font-size: smaller;">${globalThis.panelVersion}</span> \u{1F4A6}</h1>
         <div class="form-container">
             <form id="configForm">
                 <details open>
@@ -5169,17 +5070,17 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
                             title="Please enter a valid DNS IP Address!"  required>
                     </div>
                     <div class="form-control">
-                        <label for="vlessTrojanFakeDNS">\u{1F9E2} Fake DNS</label>
+                        <label for="VLTRFakeDNS">\u{1F9E2} Fake DNS</label>
                         <div class="input-with-select">
-                            <select id="vlessTrojanFakeDNS" name="vlessTrojanFakeDNS">
-                                <option value="true" ${vlessTrojanFakeDNS ? "selected" : ""}>Enabled</option>
-                                <option value="false" ${!vlessTrojanFakeDNS ? "selected" : ""}>Disabled</option>
+                            <select id="VLTRFakeDNS" name="VLTRFakeDNS">
+                                <option value="true" ${VLTRFakeDNS ? "selected" : ""}>Enabled</option>
+                                <option value="false" ${!VLTRFakeDNS ? "selected" : ""}>Disabled</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-control">
                         <label for="proxyIP">\u{1F4CD} Proxy IPs / Domains</label>
-                        <input type="text" id="proxyIP" name="proxyIP" value="${proxyIP2.replaceAll(",", " , ")}">
+                        <input type="text" id="proxyIP" name="proxyIP" value="${proxyIP.replaceAll(",", " , ")}">
                     </div>
                     <div class="form-control">
                         <label for="outProxy">\u2708\uFE0F Chain Proxy</label>
@@ -5220,19 +5121,19 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
                         <input type="text" id="customCdnSni" name="customCdnSni" value="${customCdnSni}">
                     </div>
                     <div class="form-control">
-                        <label for="bestVLESSTrojanInterval">\u{1F504} Best Interval</label>
-                        <input type="number" id="bestVLESSTrojanInterval" name="bestVLESSTrojanInterval" min="10" max="90" value="${bestVLESSTrojanInterval}">
+                        <label for="bestVLTRInterval">\u{1F504} Best Interval</label>
+                        <input type="number" id="bestVLTRInterval" name="bestVLTRInterval" min="10" max="90" value="${bestVLTRInterval}">
                     </div>
                     <div class="form-control" style="padding-top: 10px;">
-                        <label for="vlessConfigs">\u2699\uFE0F Protocols</label>
+                        <label for="VLConfigs">\u2699\uFE0F Protocols</label>
                         <div style="width: 100%; display: grid; grid-template-columns: 1fr 1fr; align-items: baseline; margin-top: 10px;">
                             <div style = "display: flex; justify-content: center; align-items: center;">
-                                <input type="checkbox" id="vlessConfigs" name="vlessConfigs" onchange="handleProtocolChange(event)" value="true" ${vlessConfigs ? "checked" : ""}>
-                                <label for="vlessConfigs" style="margin: 0 5px; font-weight: normal; font-size: unset;">VLESS</label>
+                                <input type="checkbox" id="VLConfigs" name="VLConfigs" onchange="handleProtocolChange(event)" value="true" ${VLConfigs ? "checked" : ""}>
+                                <label for="VLConfigs" style="margin: 0 5px; font-weight: normal; font-size: unset;">VLESS</label>
                             </div>
                             <div style = "display: flex; justify-content: center; align-items: center;">
-                                <input type="checkbox" id="trojanConfigs" name="trojanConfigs" onchange="handleProtocolChange(event)" value="true" ${trojanConfigs ? "checked" : ""}>
-                                <label for="trojanConfigs" style="margin: 0 5px; font-weight: normal; font-size: unset;">Trojan</label>
+                                <input type="checkbox" id="TRConfigs" name="TRConfigs" onchange="handleProtocolChange(event)" value="true" ${TRConfigs ? "checked" : ""}>
+                                <label for="TRConfigs" style="margin: 0 5px; font-weight: normal; font-size: unset;">Trojan</label>
                             </div>
                         </div>
                     </div>
@@ -5618,7 +5519,7 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
             <hr>
             <div class="header-container">
                 <h2 style="margin: 0 5px;">\u{1F4A1} MY IP</h2>
-                <button type="button" id="resetSettings" onclick="fetchIPInfo()" style="background: none; margin: 0; border: none; cursor: pointer;">
+                <button type="button" id="refresh-geo-location" onclick="fetchIPInfo()" style="background: none; margin: 0; border: none; cursor: pointer;">
                     <i class="fa fa-refresh fa-2x" style="color: var(--button-color);" aria-hidden="true"></i>
                 </button>       
             </div>
@@ -5668,7 +5569,7 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
     <script>
         const defaultHttpsPorts = ['443', '8443', '2053', '2083', '2087', '2096'];
         let activePortsNo = ${ports.length};
-        let activeHttpsPortsNo = ${ports.filter((port) => defaultHttpsPorts.includes(port)).length};
+        let activeHttpsPortsNo = ${ports.filter((port) => globalThis.defaultHttpsPorts.includes(port)).length};
         let activeProtocols = ${activeProtocols};
         const warpPlusLicense = '${warpPlusLicense}';
         localStorage.getItem('darkMode') === 'enabled' && document.body.classList.add('dark-mode');
@@ -5792,6 +5693,10 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
                 document.getElementById(cfIP ? 'cf-isp' : 'isp').textContent = isp;
             };
 
+            const refreshIcon = document.getElementById("refresh-geo-location").querySelector('i');
+            refreshIcon.classList.add('fa-spin');
+            document.body.style.cursor = 'wait';
+
             try {
                 const ipResponse = await fetch('https://ipwho.is/' + '?nocache=' + Date.now(), { cache: "no-store" });
                 const ipResponseObj = await ipResponse.json();
@@ -5809,6 +5714,8 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
                 });
                 const cfIPGeoLocation = await cfGeoResponse.json();
                 updateUI(cfIP, cfIPGeoLocation.country, cfIPGeoLocation.countryCode, cfIPGeoLocation.city, cfIPGeoLocation.isp, true);
+                refreshIcon.classList.remove('fa-spin');
+                document.body.style.cursor = 'default';
             } catch (error) {
                 console.error('Error fetching IP address:', error);
             }
@@ -6120,7 +6027,7 @@ async function renderHomePage(request, env, proxySettings, isPassSet) {
     status: 200,
     headers: {
       "Content-Type": "text/html;charset=utf-8",
-      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Origin": globalThis.urlOrigin,
       "Access-Control-Allow-Methods": "GET, POST",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "X-Content-Type-Options": "nosniff",
@@ -6140,9 +6047,9 @@ function isValidUUID(uuid) {
 }
 __name(isValidUUID, "isValidUUID");
 async function resolveDNS(domain) {
-  const dohURL2 = "https://cloudflare-dns.com/dns-query";
-  const dohURLv4 = `${dohURL2}?name=${encodeURIComponent(domain)}&type=A`;
-  const dohURLv6 = `${dohURL2}?name=${encodeURIComponent(domain)}&type=AAAA`;
+  const dohURL = "https://cloudflare-dns.com/dns-query";
+  const dohURLv4 = `${dohURL}?name=${encodeURIComponent(domain)}&type=A`;
+  const dohURLv6 = `${dohURL}?name=${encodeURIComponent(domain)}&type=AAAA`;
   try {
     const [ipv4Response, ipv6Response] = await Promise.all([
       fetch(dohURLv4, { headers: { accept: "application/dns-json" } }),
@@ -6165,7 +6072,6 @@ function isDomain(address) {
 }
 __name(isDomain, "isDomain");
 async function handlePanel(request, env) {
-  await initializeParams(request, env);
   const auth = await Authenticate(request, env);
   if (request.method === "POST") {
     if (!auth)
@@ -6173,19 +6079,17 @@ async function handlePanel(request, env) {
     await updateDataset(request, env);
     return new Response("Success", { status: 200 });
   }
-  const { kvNotFound, proxySettings } = await getDataset(request, env);
-  if (kvNotFound)
-    return await renderErrorPage(request, env, "KV Dataset is not properly set!", null, true);
-  const pwd = await env.obobob.get("pwd");
+  const { proxySettings } = await getDataset(request, env);
+  const pwd = await env.kv.get("pwd");
   if (pwd && !auth)
-    return Response.redirect(`${origin}/login`, 302);
+    return Response.redirect(`${globalThis.urlOrigin}/login`, 302);
   const isPassSet = pwd?.length >= 8;
-  return await renderHomePage(request, env, proxySettings, isPassSet);
+  return await renderHomePage(proxySettings, isPassSet);
 }
 __name(handlePanel, "handlePanel");
 async function fallback(request) {
   const url = new URL(request.url);
-  url.hostname = "www.speedtest.net";
+  url.hostname = "speed.cloudflare.com";
   url.protocol = "https:";
   request = new Request(url, request);
   return await fetch(request);
@@ -6208,11 +6112,38 @@ async function getMyIP(request) {
 }
 __name(getMyIP, "getMyIP");
 
+// src/helpers/init.js
+function initializeParams(request, env) {
+  const proxyIPs = env.PROXYIP?.split(",").map((proxyIP) => proxyIP.trim());
+  const url = new URL(request.url);
+  const searchParams = new URLSearchParams(url.search);
+  globalThis.panelVersion = "3";
+  globalThis.defaultHttpPorts = ["80", "8080", "2052", "2082", "2086", "2095", "8880"];
+  globalThis.defaultHttpsPorts = ["443", "8443", "2053", "2083", "2087", "2096"];
+  globalThis.userID = env.UUID;
+  globalThis.TRPassword = env.TR_PASS;
+  globalThis.proxyIP = proxyIPs ? proxyIPs[Math.floor(Math.random() * proxyIPs.length)] : "bpb.yousef.isegaro.com";
+  globalThis.hostName = request.headers.get("Host");
+  globalThis.pathName = url.pathname;
+  globalThis.client = searchParams.get("app");
+  globalThis.urlOrigin = url.origin;
+  globalThis.dohURL = env.DOH_URL || "https://cloudflare-dns.com/dns-query";
+  if (pathName !== "/secrets") {
+    if (!userID || !globalThis.TRPassword)
+      throw new Error(`Please set UUID and Trojan password first. Please visit <a href="https://${hostName}/secrets" target="_blank">here</a> to generate them.`, { cause: "init" });
+    if (userID && !isValidUUID(userID))
+      throw new Error(`Invalid UUID: ${userID}`, { cause: "init" });
+    if (typeof env.kv !== "object")
+      throw new Error("KV Dataset is not properly set! Please refer to tutorials.", { cause: "init" });
+  }
+}
+__name(initializeParams, "initializeParams");
+
 // src/protocols/vless.js
-async function vlessOverWSHandler(request, env) {
-  await initializeParams(request, env);
+import { connect } from "cloudflare:sockets";
+async function VLOverWSHandler(request) {
   const webSocketPair = new WebSocketPair();
-  const [client2, webSocket] = Object.values(webSocketPair);
+  const [client, webSocket] = Object.values(webSocketPair);
   webSocket.accept();
   let address = "";
   let portWithRandomLog = "";
@@ -6244,9 +6175,9 @@ async function vlessOverWSHandler(request, env) {
           portRemote = 443,
           addressRemote = "",
           rawDataIndex,
-          vlessVersion = new Uint8Array([0, 0]),
+          VLVersion = new Uint8Array([0, 0]),
           isUDP
-        } = await processVlessHeader(chunk, userID);
+        } = await processVLHeader(chunk, globalThis.userID);
         address = addressRemote;
         portWithRandomLog = `${portRemote}--${Math.random()} ${isUDP ? "udp " : "tcp "} `;
         if (hasError) {
@@ -6261,22 +6192,21 @@ async function vlessOverWSHandler(request, env) {
             return;
           }
         }
-        const vlessResponseHeader = new Uint8Array([vlessVersion[0], 0]);
+        const VLResponseHeader = new Uint8Array([VLVersion[0], 0]);
         const rawClientData = chunk.slice(rawDataIndex);
         if (isDns) {
-          const { write } = await handleUDPOutBound(webSocket, vlessResponseHeader, log);
+          const { write } = await handleUDPOutBound(webSocket, VLResponseHeader, log);
           udpStreamWrite = write;
           udpStreamWrite(rawClientData);
           return;
         }
         handleTCPOutBound(
-          request,
           remoteSocketWapper,
           addressRemote,
           portRemote,
           rawClientData,
           webSocket,
-          vlessResponseHeader,
+          VLResponseHeader,
           log
         );
       },
@@ -6293,10 +6223,10 @@ async function vlessOverWSHandler(request, env) {
   return new Response(null, {
     status: 101,
     // @ts-ignore
-    webSocket: client2
+    webSocket: client
   });
 }
-__name(vlessOverWSHandler, "vlessOverWSHandler");
+__name(VLOverWSHandler, "VLOverWSHandler");
 async function checkUuidInApiResponse(targetUuid) {
   try {
     const apiResponse = await getApiResponse();
@@ -6311,7 +6241,7 @@ async function checkUuidInApiResponse(targetUuid) {
   }
 }
 __name(checkUuidInApiResponse, "checkUuidInApiResponse");
-async function handleTCPOutBound(request, remoteSocket, addressRemote, portRemote, rawClientData, webSocket, vlessResponseHeader, log) {
+async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawClientData, webSocket, VLResponseHeader, log) {
   async function connectAndWrite(address, port) {
     if (/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?).){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(address))
       address = `${atob("d3d3Lg==")}${address}${atob("LnNzbGlwLmlv")}`;
@@ -6328,20 +6258,20 @@ async function handleTCPOutBound(request, remoteSocket, addressRemote, portRemot
   }
   __name(connectAndWrite, "connectAndWrite");
   async function retry() {
-    const panelProxyIP = pathName.split("/")[2];
+    const panelProxyIP = globalThis.pathName.split("/")[2];
     const panelProxyIPs = panelProxyIP ? atob(panelProxyIP).split(",") : void 0;
-    const finalProxyIP = panelProxyIPs ? panelProxyIPs[Math.floor(Math.random() * panelProxyIPs.length)] : proxyIP || addressRemote;
+    const finalProxyIP = panelProxyIPs ? panelProxyIPs[Math.floor(Math.random() * panelProxyIPs.length)] : globalThis.proxyIP || addressRemote;
     const tcpSocket2 = await connectAndWrite(finalProxyIP, portRemote);
     tcpSocket2.closed.catch((error) => {
       console.log("retry tcpSocket closed error", error);
     }).finally(() => {
       safeCloseWebSocket(webSocket);
     });
-    vlessRemoteSocketToWS(tcpSocket2, webSocket, vlessResponseHeader, null, log);
+    VLRemoteSocketToWS(tcpSocket2, webSocket, VLResponseHeader, null, log);
   }
   __name(retry, "retry");
   const tcpSocket = await connectAndWrite(addressRemote, portRemote);
-  vlessRemoteSocketToWS(tcpSocket, webSocket, vlessResponseHeader, retry, log);
+  VLRemoteSocketToWS(tcpSocket, webSocket, VLResponseHeader, retry, log);
 }
 __name(handleTCPOutBound, "handleTCPOutBound");
 function makeReadableWebSocketStream(webSocketServer, earlyDataHeader, log) {
@@ -6387,17 +6317,17 @@ function makeReadableWebSocketStream(webSocketServer, earlyDataHeader, log) {
   return stream;
 }
 __name(makeReadableWebSocketStream, "makeReadableWebSocketStream");
-async function processVlessHeader(vlessBuffer, userID2) {
-  if (vlessBuffer.byteLength < 24) {
+async function processVLHeader(VLBuffer, userID2) {
+  if (VLBuffer.byteLength < 24) {
     return {
       hasError: true,
       message: "invalid data"
     };
   }
-  const version = new Uint8Array(vlessBuffer.slice(0, 1));
+  const version = new Uint8Array(VLBuffer.slice(0, 1));
   let isValidUser = false;
   let isUDP = false;
-  const slicedBuffer = new Uint8Array(vlessBuffer.slice(1, 17));
+  const slicedBuffer = new Uint8Array(VLBuffer.slice(1, 17));
   const slicedBufferString = stringify(slicedBuffer);
   const uuids = userID2.includes(",") ? userID2.split(",") : [userID2];
   const checkUuidInApi = await checkUuidInApiResponse(slicedBufferString);
@@ -6409,8 +6339,8 @@ async function processVlessHeader(vlessBuffer, userID2) {
       message: "invalid user"
     };
   }
-  const optLength = new Uint8Array(vlessBuffer.slice(17, 18))[0];
-  const command = new Uint8Array(vlessBuffer.slice(18 + optLength, 18 + optLength + 1))[0];
+  const optLength = new Uint8Array(VLBuffer.slice(17, 18))[0];
+  const command = new Uint8Array(VLBuffer.slice(18 + optLength, 18 + optLength + 1))[0];
   if (command === 1) {
   } else if (command === 2) {
     isUDP = true;
@@ -6421,10 +6351,10 @@ async function processVlessHeader(vlessBuffer, userID2) {
     };
   }
   const portIndex = 18 + optLength + 1;
-  const portBuffer = vlessBuffer.slice(portIndex, portIndex + 2);
+  const portBuffer = VLBuffer.slice(portIndex, portIndex + 2);
   const portRemote = new DataView(portBuffer).getUint16(0);
   let addressIndex = portIndex + 2;
-  const addressBuffer = new Uint8Array(vlessBuffer.slice(addressIndex, addressIndex + 1));
+  const addressBuffer = new Uint8Array(VLBuffer.slice(addressIndex, addressIndex + 1));
   const addressType = addressBuffer[0];
   let addressLength = 0;
   let addressValueIndex = addressIndex + 1;
@@ -6432,16 +6362,16 @@ async function processVlessHeader(vlessBuffer, userID2) {
   switch (addressType) {
     case 1:
       addressLength = 4;
-      addressValue = new Uint8Array(vlessBuffer.slice(addressValueIndex, addressValueIndex + addressLength)).join(".");
+      addressValue = new Uint8Array(VLBuffer.slice(addressValueIndex, addressValueIndex + addressLength)).join(".");
       break;
     case 2:
-      addressLength = new Uint8Array(vlessBuffer.slice(addressValueIndex, addressValueIndex + 1))[0];
+      addressLength = new Uint8Array(VLBuffer.slice(addressValueIndex, addressValueIndex + 1))[0];
       addressValueIndex += 1;
-      addressValue = new TextDecoder().decode(vlessBuffer.slice(addressValueIndex, addressValueIndex + addressLength));
+      addressValue = new TextDecoder().decode(VLBuffer.slice(addressValueIndex, addressValueIndex + addressLength));
       break;
     case 3:
       addressLength = 16;
-      const dataView = new DataView(vlessBuffer.slice(addressValueIndex, addressValueIndex + addressLength));
+      const dataView = new DataView(VLBuffer.slice(addressValueIndex, addressValueIndex + addressLength));
       const ipv6 = [];
       for (let i = 0; i < 8; i++) {
         ipv6.push(dataView.getUint16(i * 2).toString(16));
@@ -6466,15 +6396,15 @@ async function processVlessHeader(vlessBuffer, userID2) {
     addressType,
     portRemote,
     rawDataIndex: addressValueIndex + addressLength,
-    vlessVersion: version,
+    VLVersion: version,
     isUDP
   };
 }
-__name(processVlessHeader, "processVlessHeader");
-async function vlessRemoteSocketToWS(remoteSocket, webSocket, vlessResponseHeader, retry, log) {
+__name(processVLHeader, "processVLHeader");
+async function VLRemoteSocketToWS(remoteSocket, webSocket, VLResponseHeader, retry, log) {
   let remoteChunkCount = 0;
   let chunks = [];
-  let vlessHeader = vlessResponseHeader;
+  let VLHeader = VLResponseHeader;
   let hasIncomingData = false;
   await remoteSocket.readable.pipeTo(
     new WritableStream({
@@ -6490,9 +6420,9 @@ async function vlessRemoteSocketToWS(remoteSocket, webSocket, vlessResponseHeade
         if (webSocket.readyState !== WS_READY_STATE_OPEN) {
           controller.error("webSocket.readyState is not open, maybe close");
         }
-        if (vlessHeader) {
-          webSocket.send(await new Blob([vlessHeader, chunk]).arrayBuffer());
-          vlessHeader = null;
+        if (VLHeader) {
+          webSocket.send(await new Blob([VLHeader, chunk]).arrayBuffer());
+          VLHeader = null;
         } else {
           webSocket.send(chunk);
         }
@@ -6513,7 +6443,7 @@ async function vlessRemoteSocketToWS(remoteSocket, webSocket, vlessResponseHeade
     retry();
   }
 }
-__name(vlessRemoteSocketToWS, "vlessRemoteSocketToWS");
+__name(VLRemoteSocketToWS, "VLRemoteSocketToWS");
 function base64ToArrayBuffer(base64Str) {
   if (!base64Str) {
     return { earlyData: null, error: null };
@@ -6556,8 +6486,8 @@ function stringify(arr, offset = 0) {
   return uuid;
 }
 __name(stringify, "stringify");
-async function handleUDPOutBound(webSocket, vlessResponseHeader, log) {
-  let isVlessHeaderSent = false;
+async function handleUDPOutBound(webSocket, VLResponseHeader, log) {
+  let isVLHeaderSent = false;
   const transformStream = new TransformStream({
     start(controller) {
     },
@@ -6577,7 +6507,7 @@ async function handleUDPOutBound(webSocket, vlessResponseHeader, log) {
     new WritableStream({
       async write(chunk) {
         const resp = await fetch(
-          dohURL,
+          globalThis.dohURL,
           // dns server url
           {
             method: "POST",
@@ -6592,11 +6522,11 @@ async function handleUDPOutBound(webSocket, vlessResponseHeader, log) {
         const udpSizeBuffer = new Uint8Array([udpSize >> 8 & 255, udpSize & 255]);
         if (webSocket.readyState === WS_READY_STATE_OPEN) {
           log(`doh success and dns message length is ${udpSize}`);
-          if (isVlessHeaderSent) {
+          if (isVLHeaderSent) {
             webSocket.send(await new Blob([udpSizeBuffer, dnsQueryResult]).arrayBuffer());
           } else {
-            webSocket.send(await new Blob([vlessResponseHeader, udpSizeBuffer, dnsQueryResult]).arrayBuffer());
-            isVlessHeaderSent = true;
+            webSocket.send(await new Blob([VLResponseHeader, udpSizeBuffer, dnsQueryResult]).arrayBuffer());
+            isVLHeaderSent = true;
           }
         }
       }
@@ -6620,10 +6550,9 @@ __name(handleUDPOutBound, "handleUDPOutBound");
 // src/protocols/trojan.js
 var import_js_sha256 = __toESM(require_sha256());
 import { connect as connect2 } from "cloudflare:sockets";
-async function trojanOverWSHandler(request, env) {
-  await initializeParams(request, env);
+async function TROverWSHandler(request) {
   const webSocketPair = new WebSocketPair();
-  const [client2, webSocket] = Object.values(webSocketPair);
+  const [client, webSocket] = Object.values(webSocketPair);
   webSocket.accept();
   let address = "";
   let portWithRandomLog = "";
@@ -6654,14 +6583,14 @@ async function trojanOverWSHandler(request, env) {
           portRemote = 443,
           addressRemote = "",
           rawClientData
-        } = await parseTrojanHeader(chunk);
+        } = await parseTRHeader(chunk);
         address = addressRemote;
         portWithRandomLog = `${portRemote}--${Math.random()} tcp`;
         if (hasError) {
           throw new Error(message2);
           return;
         }
-        handleTCPOutBound2(request, remoteSocketWapper, addressRemote, portRemote, rawClientData, webSocket, log);
+        handleTCPOutBound2(remoteSocketWapper, addressRemote, portRemote, rawClientData, webSocket, log);
       },
       close() {
         log(`readableWebSocketStream is closed`);
@@ -6676,11 +6605,11 @@ async function trojanOverWSHandler(request, env) {
   return new Response(null, {
     status: 101,
     // @ts-ignore
-    webSocket: client2
+    webSocket: client
   });
 }
-__name(trojanOverWSHandler, "trojanOverWSHandler");
-async function parseTrojanHeader(buffer) {
+__name(TROverWSHandler, "TROverWSHandler");
+async function parseTRHeader(buffer) {
   if (buffer.byteLength < 56) {
     return {
       hasError: true,
@@ -6695,7 +6624,7 @@ async function parseTrojanHeader(buffer) {
     };
   }
   const password = new TextDecoder().decode(buffer.slice(0, crLfIndex));
-  if (password !== import_js_sha256.default.sha224(trojanPassword)) {
+  if (password !== import_js_sha256.default.sha224(globalThis.TRPassword)) {
     return {
       hasError: true,
       message: "invalid password"
@@ -6761,8 +6690,8 @@ async function parseTrojanHeader(buffer) {
     rawClientData: socks5DataBuffer.slice(portIndex + 4)
   };
 }
-__name(parseTrojanHeader, "parseTrojanHeader");
-async function handleTCPOutBound2(request, remoteSocket, addressRemote, portRemote, rawClientData, webSocket, log) {
+__name(parseTRHeader, "parseTRHeader");
+async function handleTCPOutBound2(remoteSocket, addressRemote, portRemote, rawClientData, webSocket, log) {
   async function connectAndWrite(address, port) {
     if (/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?).){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(address))
       address = `${atob("d3d3Lg==")}${address}${atob("LnNzbGlwLmlv")}`;
@@ -6779,20 +6708,20 @@ async function handleTCPOutBound2(request, remoteSocket, addressRemote, portRemo
   }
   __name(connectAndWrite, "connectAndWrite");
   async function retry() {
-    const panelProxyIP = pathName.split("/")[2];
+    const panelProxyIP = globalThis.pathName.split("/")[2];
     const panelProxyIPs = panelProxyIP ? atob(panelProxyIP).split(",") : void 0;
-    const finalProxyIP = panelProxyIPs ? panelProxyIPs[Math.floor(Math.random() * panelProxyIPs.length)] : proxyIP || addressRemote;
+    const finalProxyIP = panelProxyIPs ? panelProxyIPs[Math.floor(Math.random() * panelProxyIPs.length)] : globalThis.proxyIP || addressRemote;
     const tcpSocket2 = await connectAndWrite(finalProxyIP, portRemote);
     tcpSocket2.closed.catch((error) => {
       console.log("retry tcpSocket closed error", error);
     }).finally(() => {
       safeCloseWebSocket2(webSocket);
     });
-    trojanRemoteSocketToWS(tcpSocket2, webSocket, null, log);
+    TRRemoteSocketToWS(tcpSocket2, webSocket, null, log);
   }
   __name(retry, "retry");
   const tcpSocket = await connectAndWrite(addressRemote, portRemote);
-  trojanRemoteSocketToWS(tcpSocket, webSocket, retry, log);
+  TRRemoteSocketToWS(tcpSocket, webSocket, retry, log);
 }
 __name(handleTCPOutBound2, "handleTCPOutBound");
 function makeReadableWebSocketStream2(webSocketServer, earlyDataHeader, log) {
@@ -6838,7 +6767,7 @@ function makeReadableWebSocketStream2(webSocketServer, earlyDataHeader, log) {
   return stream;
 }
 __name(makeReadableWebSocketStream2, "makeReadableWebSocketStream");
-async function trojanRemoteSocketToWS(remoteSocket, webSocket, retry, log) {
+async function TRRemoteSocketToWS(remoteSocket, webSocket, retry, log) {
   let hasIncomingData = false;
   await remoteSocket.readable.pipeTo(
     new WritableStream({
@@ -6872,7 +6801,7 @@ async function trojanRemoteSocketToWS(remoteSocket, webSocket, retry, log) {
     retry();
   }
 }
-__name(trojanRemoteSocketToWS, "trojanRemoteSocketToWS");
+__name(TRRemoteSocketToWS, "TRRemoteSocketToWS");
 function base64ToArrayBuffer2(base64Str) {
   if (!base64Str) {
     return { earlyData: null, error: null };
@@ -6900,12 +6829,67 @@ function safeCloseWebSocket2(socket) {
 }
 __name(safeCloseWebSocket2, "safeCloseWebSocket");
 
+// src/pages/error.js
+async function renderErrorPage(error) {
+  const errorPage = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>BPB Error</title>
+        <style>
+            :root {
+                --color: black;
+                --header-color: #09639f; 
+                --background-color: #fff;
+                --border-color: #ddd;
+                --header-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
+            }
+            body, html {
+                height: 100%;
+                width: 100%;
+                margin: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-family: system-ui;
+                color: var(--color);
+                background-color: var(--background-color);
+            }
+            body.dark-mode {
+                --color: white;
+                --header-color: #3498DB; 
+                --background-color: #121212;
+                --header-shadow: 2px 2px 4px rgba(255, 255, 255, 0.25);          
+            }
+            h1 { font-size: 2.5rem; text-align: center; color: var(--header-color); text-shadow: var(--header-shadow); }
+            #error-container { text-align: center; }
+        </style>
+    </head>
+    <body>
+        <div id="error-container">
+            <h1>BPB Panel <span style="font-size: smaller;">${globalThis.panelVersion}</span> \u{1F4A6}</h1>
+            <div id="error-message">
+                <h2>\u274C Something went wrong!</h2>
+                <p><b>${error ? `\u26A0\uFE0F ${error.cause ? error.message.toString() : error.stack.toString()}` : ""}</b></p>
+            </div>
+        </div>
+    <script>
+        localStorage.getItem('darkMode') === 'enabled' && document.body.classList.add('dark-mode');
+    <\/script>
+    </body>
+    </html>`;
+  return new Response(errorPage, { status: 200, headers: { "Content-Type": "text/html" } });
+}
+__name(renderErrorPage, "renderErrorPage");
+
 // src/cores-configs/helpers.js
-async function getConfigAddresses(hostName2, cleanIPs, enableIPv6) {
-  const resolved = await resolveDNS(hostName2);
+async function getConfigAddresses(cleanIPs, enableIPv6) {
+  const resolved = await resolveDNS(globalThis.hostName);
   const defaultIPv6 = enableIPv6 ? resolved.ipv6.map((ip) => `[${ip}]`) : [];
   return [
-    hostName2,
+    globalThis.hostName,
     "www.speedtest.net",
     ...resolved.ipv4,
     ...defaultIPv6,
@@ -6973,7 +6957,7 @@ async function buildXrayDNS(proxySettings, outboundAddrs, domainToStaticIPs, isW
     remoteDNS,
     resolvedRemoteDNS,
     localDNS,
-    vlessTrojanFakeDNS,
+    VLTRFakeDNS,
     enableIPv6,
     warpFakeDNS,
     warpEnableIPv6,
@@ -6995,7 +6979,7 @@ async function buildXrayDNS(proxySettings, outboundAddrs, domainToStaticIPs, isW
     { rule: blockAds, host: "geosite:category-ads-ir" },
     { rule: blockPorn, host: "geosite:category-porn" }
   ];
-  const isFakeDNS = vlessTrojanFakeDNS && !isWarp || warpFakeDNS && isWarp;
+  const isFakeDNS = VLTRFakeDNS && !isWarp || warpFakeDNS && isWarp;
   const isIPv62 = enableIPv6 && !isWarp || warpEnableIPv6 && isWarp;
   const outboundDomains = outboundAddrs.filter((address) => isDomain(address));
   const customBypassRulesDomains = customBypassRules.split(",").filter((address) => isDomain(address));
@@ -7210,7 +7194,7 @@ function buildXrayRoutingRules(proxySettings, outboundAddrs, isChain, isBalancer
   return rules;
 }
 __name(buildXrayRoutingRules, "buildXrayRoutingRules");
-function buildXrayVLESSOutbound(tag2, address, port, host, sni, proxyIP2, isFragment, allowInsecure, enableIPv6) {
+function buildXrayVLOutbound(tag2, address, port, host, sni, proxyIP, isFragment, allowInsecure, enableIPv6) {
   const outbound = {
     protocol: "vless",
     settings: {
@@ -7220,7 +7204,7 @@ function buildXrayVLESSOutbound(tag2, address, port, host, sni, proxyIP2, isFrag
           port: +port,
           users: [
             {
-              id: userID,
+              id: globalThis.userID,
               encryption: "none",
               level: 8
             }
@@ -7233,16 +7217,16 @@ function buildXrayVLESSOutbound(tag2, address, port, host, sni, proxyIP2, isFrag
       security: "none",
       sockopt: {},
       wsSettings: {
+        host,
         headers: {
-          Host: host,
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
         },
-        path: `/${getRandomPath(16)}${proxyIP2 ? `/${btoa(proxyIP2)}` : ""}?ed=2560`
+        path: `/${getRandomPath(16)}${proxyIP ? `/${btoa(proxyIP)}` : ""}?ed=2560`
       }
     },
     tag: tag2
   };
-  if (defaultHttpsPorts.includes(port)) {
+  if (globalThis.defaultHttpsPorts.includes(port)) {
     outbound.streamSettings.security = "tls";
     outbound.streamSettings.tlsSettings = {
       allowInsecure,
@@ -7261,8 +7245,8 @@ function buildXrayVLESSOutbound(tag2, address, port, host, sni, proxyIP2, isFrag
   }
   return outbound;
 }
-__name(buildXrayVLESSOutbound, "buildXrayVLESSOutbound");
-function buildXrayTrojanOutbound(tag2, address, port, host, sni, proxyIP2, isFragment, allowInsecure, enableIPv6) {
+__name(buildXrayVLOutbound, "buildXrayVLOutbound");
+function buildXrayTROutbound(tag2, address, port, host, sni, proxyIP, isFragment, allowInsecure, enableIPv6) {
   const outbound = {
     protocol: "trojan",
     settings: {
@@ -7270,7 +7254,7 @@ function buildXrayTrojanOutbound(tag2, address, port, host, sni, proxyIP2, isFra
         {
           address,
           port: +port,
-          password: trojanPassword,
+          password: globalThis.TRPassword,
           level: 8
         }
       ]
@@ -7283,12 +7267,12 @@ function buildXrayTrojanOutbound(tag2, address, port, host, sni, proxyIP2, isFra
         headers: {
           Host: host
         },
-        path: `/tr${getRandomPath(16)}${proxyIP2 ? `/${btoa(proxyIP2)}` : ""}?ed=2560`
+        path: `/tr${getRandomPath(16)}${proxyIP ? `/${btoa(proxyIP)}` : ""}?ed=2560`
       }
     },
     tag: tag2
   };
-  if (defaultHttpsPorts.includes(port)) {
+  if (globalThis.defaultHttpsPorts.includes(port)) {
     outbound.streamSettings.security = "tls";
     outbound.streamSettings.tlsSettings = {
       allowInsecure,
@@ -7307,8 +7291,8 @@ function buildXrayTrojanOutbound(tag2, address, port, host, sni, proxyIP2, isFra
   }
   return outbound;
 }
-__name(buildXrayTrojanOutbound, "buildXrayTrojanOutbound");
-function buildXrayWarpOutbound(proxySettings, warpConfigs, endpoint, isChain, client2) {
+__name(buildXrayTROutbound, "buildXrayTROutbound");
+function buildXrayWarpOutbound(proxySettings, warpConfigs, endpoint, isChain, client) {
   const {
     warpEnableIPv6,
     nikaNGNoiseMode,
@@ -7352,7 +7336,7 @@ function buildXrayWarpOutbound(proxySettings, warpConfigs, endpoint, isChain, cl
     tag: isChain ? "chain" : "proxy"
   };
   !isChain && delete outbound.streamSettings;
-  client2 === "nikang" && !isChain && Object.assign(outbound.settings, {
+  client === "nikang" && !isChain && Object.assign(outbound.settings, {
     wnoise: nikaNGNoiseMode,
     wnoisecount: noiseCountMin === noiseCountMax ? noiseCountMin : `${noiseCountMin}-${noiseCountMax}`,
     wpayloadsize: noiseSizeMin === noiseSizeMax ? noiseSizeMin : `${noiseSizeMin}-${noiseSizeMax}`,
@@ -7518,10 +7502,10 @@ function buildXrayChainOutbound(chainProxyParams, enableIPv6) {
 __name(buildXrayChainOutbound, "buildXrayChainOutbound");
 function buildXrayConfig(proxySettings, remark, isFragment, isBalancer, isChain, balancerFallback, isWarp) {
   const {
-    vlessTrojanFakeDNS,
+    VLTRFakeDNS,
     enableIPv6,
     warpFakeDNS,
-    bestVLESSTrojanInterval,
+    bestVLTRInterval,
     bestWarpInterval,
     lengthMin,
     lengthMax,
@@ -7529,7 +7513,7 @@ function buildXrayConfig(proxySettings, remark, isFragment, isBalancer, isChain,
     intervalMax,
     fragmentPackets
   } = proxySettings;
-  const isFakeDNS = vlessTrojanFakeDNS && !isWarp || warpFakeDNS && isWarp;
+  const isFakeDNS = VLTRFakeDNS && !isWarp || warpFakeDNS && isWarp;
   const config = structuredClone(xrayConfigTemp);
   config.remarks = remark;
   if (isFakeDNS) {
@@ -7546,7 +7530,7 @@ function buildXrayConfig(proxySettings, remark, isFragment, isBalancer, isChain,
     config.outbounds.shift();
   }
   if (isBalancer) {
-    const interval = isWarp ? bestWarpInterval : bestVLESSTrojanInterval;
+    const interval = isWarp ? bestWarpInterval : bestVLTRInterval;
     config.observatory.probeInterval = `${interval}s`;
     if (balancerFallback)
       config.routing.balancers[0].fallbackTag = "prox-2";
@@ -7624,7 +7608,7 @@ async function buildXrayWorkerLessConfig(proxySettings) {
   const config = buildXrayConfig(proxySettings, "\u{1F4A6} BPB F - WorkerLess \u2B50", true, false, false, false, false);
   config.dns = await buildXrayDNS(proxySettings, [], void 0, true);
   config.routing.rules = buildXrayRoutingRules(proxySettings, [], false, false, true, false);
-  const fakeOutbound = buildXrayVLESSOutbound("fake-outbound", "google.com", "443", userID, "google.com", "google.com", "", true, false);
+  const fakeOutbound = buildXrayVLOutbound("fake-outbound", "google.com", "443", globalThis.userID, "google.com", "google.com", "", true, false);
   delete fakeOutbound.streamSettings.sockopt;
   fakeOutbound.streamSettings.wsSettings.path = "/";
   config.outbounds.push(fakeOutbound);
@@ -7632,16 +7616,13 @@ async function buildXrayWorkerLessConfig(proxySettings) {
 }
 __name(buildXrayWorkerLessConfig, "buildXrayWorkerLessConfig");
 async function getXrayCustomConfigs(request, env, isFragment) {
-  await initializeParams(request, env);
-  const { kvNotFound, proxySettings } = await getDataset(request, env);
-  if (kvNotFound)
-    return await renderErrorPage(request, env, "KV Dataset is not properly set!", null, true);
+  const { proxySettings } = await getDataset(request, env);
   let configs = [];
   let outbounds = [];
   let protocols = [];
   let chainProxy;
   const {
-    proxyIP: proxyIP2,
+    proxyIP,
     outProxy,
     outProxyParams,
     cleanIPs,
@@ -7649,8 +7630,8 @@ async function getXrayCustomConfigs(request, env, isFragment) {
     customCdnAddrs,
     customCdnHost,
     customCdnSni,
-    vlessConfigs,
-    trojanConfigs,
+    VLConfigs,
+    TRConfigs,
     ports
   } = proxySettings;
   if (outProxy) {
@@ -7660,19 +7641,19 @@ async function getXrayCustomConfigs(request, env, isFragment) {
     } catch (error) {
       console.log("An error occured while parsing chain proxy: ", error);
       chainProxy = void 0;
-      await env.obobob.put("proxySettings", JSON.stringify({
+      await env.kv.put("proxySettings", JSON.stringify({
         ...proxySettings,
         outProxy: "",
         outProxyParams: {}
       }));
     }
   }
-  const Addresses = await getConfigAddresses(hostName, cleanIPs, enableIPv6);
+  const Addresses = await getConfigAddresses(cleanIPs, enableIPv6);
   const customCdnAddresses = customCdnAddrs ? customCdnAddrs.split(",") : [];
   const totalAddresses = isFragment ? [...Addresses] : [...Addresses, ...customCdnAddresses];
-  const totalPorts = ports.filter((port) => isFragment ? defaultHttpsPorts.includes(port) : true);
-  vlessConfigs && protocols.push("VLESS");
-  trojanConfigs && protocols.push("Trojan");
+  const totalPorts = ports.filter((port) => isFragment ? globalThis.defaultHttpsPorts.includes(port) : true);
+  VLConfigs && protocols.push("VLESS");
+  TRConfigs && protocols.push("Trojan");
   let proxyIndex = 1;
   for (const protocol of protocols) {
     let protocolIndex = 1;
@@ -7680,13 +7661,13 @@ async function getXrayCustomConfigs(request, env, isFragment) {
       for (const addr of totalAddresses) {
         const isCustomAddr = customCdnAddresses.includes(addr);
         const configType = isCustomAddr ? "C" : isFragment ? "F" : "";
-        const sni = isCustomAddr ? customCdnSni : randomUpperCase(hostName);
-        const host = isCustomAddr ? customCdnHost : hostName;
+        const sni = isCustomAddr ? customCdnSni : randomUpperCase(globalThis.hostName);
+        const host = isCustomAddr ? customCdnHost : globalThis.hostName;
         const remark = generateRemark(protocolIndex, port, addr, cleanIPs, protocol, configType);
         const customConfig = buildXrayConfig(proxySettings, remark, isFragment, false, chainProxy, false, false);
         customConfig.dns = await buildXrayDNS(proxySettings, [addr], void 0);
         customConfig.routing.rules = buildXrayRoutingRules(proxySettings, [addr], chainProxy, false, false, false);
-        const outbound = protocol === "VLESS" ? buildXrayVLESSOutbound("proxy", addr, port, host, sni, proxyIP2, isFragment, isCustomAddr, enableIPv6) : buildXrayTrojanOutbound("proxy", addr, port, host, sni, proxyIP2, isFragment, isCustomAddr, enableIPv6);
+        const outbound = protocol === "VLESS" ? buildXrayVLOutbound("proxy", addr, port, host, sni, proxyIP, isFragment, isCustomAddr, enableIPv6) : buildXrayTROutbound("proxy", addr, port, host, sni, proxyIP, isFragment, isCustomAddr, enableIPv6);
         customConfig.outbounds.unshift({ ...outbound });
         outbound.tag = `prox-${proxyIndex}`;
         if (chainProxy) {
@@ -7706,7 +7687,7 @@ async function getXrayCustomConfigs(request, env, isFragment) {
   const bestPing = await buildXrayBestPingConfig(proxySettings, totalAddresses, chainProxy, outbounds, isFragment);
   const finalConfigs = [...configs, bestPing];
   if (isFragment) {
-    const bestFragment = await buildXrayBestFragmentConfig(proxySettings, hostName, chainProxy, outbounds);
+    const bestFragment = await buildXrayBestFragmentConfig(proxySettings, globalThis.hostName, chainProxy, outbounds);
     const workerLessConfig = await buildXrayWorkerLessConfig(proxySettings);
     finalConfigs.push(bestFragment, workerLessConfig);
   }
@@ -7720,17 +7701,15 @@ async function getXrayCustomConfigs(request, env, isFragment) {
   });
 }
 __name(getXrayCustomConfigs, "getXrayCustomConfigs");
-async function getXrayWarpConfigs(request, env, client2) {
-  const { kvNotFound, proxySettings, warpConfigs } = await getDataset(request, env);
-  if (kvNotFound)
-    return await renderErrorPage(request, env, "KV Dataset is not properly set!", null, true);
+async function getXrayWarpConfigs(request, env, client) {
+  const { proxySettings, warpConfigs } = await getDataset(request, env);
   const xrayWarpConfigs = [];
   const xrayWoWConfigs = [];
   const xrayWarpOutbounds = [];
   const xrayWoWOutbounds = [];
   const { warpEndpoints } = proxySettings;
   const outboundDomains = warpEndpoints.split(",").map((endpoint) => endpoint.split(":")[0]).filter((address) => isDomain(address));
-  const proIndicator = client2 === "nikang" ? " Pro " : " ";
+  const proIndicator = client === "nikang" ? " Pro " : " ";
   for (const [index, endpoint] of warpEndpoints.split(",").entries()) {
     const endpointHost = endpoint.split(":")[0];
     const warpConfig = buildXrayConfig(proxySettings, `\u{1F4A6} ${index + 1} - Warp${proIndicator}\u{1F1EE}\u{1F1F7}`, false, false, false, false, true);
@@ -7738,8 +7717,8 @@ async function getXrayWarpConfigs(request, env, client2) {
     warpConfig.dns = WoWConfig.dns = await buildXrayDNS(proxySettings, [endpointHost], void 0, false, true);
     warpConfig.routing.rules = buildXrayRoutingRules(proxySettings, [endpointHost], false, false, false, true);
     WoWConfig.routing.rules = buildXrayRoutingRules(proxySettings, [endpointHost], true, false, false, true);
-    const warpOutbound = buildXrayWarpOutbound(proxySettings, warpConfigs, endpoint, false, client2);
-    const WoWOutbound = buildXrayWarpOutbound(proxySettings, warpConfigs, endpoint, true, client2);
+    const warpOutbound = buildXrayWarpOutbound(proxySettings, warpConfigs, endpoint, false, client);
+    const WoWOutbound = buildXrayWarpOutbound(proxySettings, warpConfigs, endpoint, true, client);
     warpConfig.outbounds.unshift(warpOutbound);
     WoWConfig.outbounds.unshift(WoWOutbound, warpOutbound);
     xrayWarpConfigs.push(warpConfig);
@@ -7900,7 +7879,7 @@ function buildSingBoxDNS(proxySettings, outboundAddrs, isWarp, remoteDNSDetour) 
   const {
     remoteDNS,
     localDNS,
-    vlessTrojanFakeDNS,
+    VLTRFakeDNS,
     enableIPv6,
     warpFakeDNS,
     warpEnableIPv6,
@@ -7913,7 +7892,7 @@ function buildSingBoxDNS(proxySettings, outboundAddrs, isWarp, remoteDNSDetour) 
     customBlockRules
   } = proxySettings;
   let fakeip;
-  const isFakeDNS = vlessTrojanFakeDNS && !isWarp || warpFakeDNS && isWarp;
+  const isFakeDNS = VLTRFakeDNS && !isWarp || warpFakeDNS && isWarp;
   const isIPv62 = enableIPv6 && !isWarp || warpEnableIPv6 && isWarp;
   const customBypassRulesDomains = customBypassRules.split(",").filter((address) => isDomain(address));
   const customBlockRulesDomains = customBlockRules.split(",").filter((address) => isDomain(address));
@@ -8217,16 +8196,16 @@ function buildSingBoxRoutingRules(proxySettings) {
   return { rules, rule_set: ruleSets };
 }
 __name(buildSingBoxRoutingRules, "buildSingBoxRoutingRules");
-function buildSingBoxVLESSOutbound(proxySettings, remark, address, port, host, sni, allowInsecure, isFragment) {
-  const { enableIPv6, lengthMin, lengthMax, intervalMin, intervalMax, proxyIP: proxyIP2 } = proxySettings;
-  const path = `/${getRandomPath(16)}${proxyIP2 ? `/${btoa(proxyIP2)}` : ""}`;
-  const tls = defaultHttpsPorts.includes(port) ? true : false;
+function buildSingBoxVLOutbound(proxySettings, remark, address, port, host, sni, allowInsecure, isFragment) {
+  const { enableIPv6, lengthMin, lengthMax, intervalMin, intervalMax, proxyIP } = proxySettings;
+  const path = `/${getRandomPath(16)}${proxyIP ? `/${btoa(proxyIP)}` : ""}`;
+  const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
   const outbound = {
     type: "vless",
     server: address,
     server_port: +port,
     domain_strategy: enableIPv6 ? "prefer_ipv4" : "ipv4_only",
-    uuid: userID,
+    uuid: globalThis.userID,
     tls: {
       alpn: "http/1.1",
       enabled: true,
@@ -8258,14 +8237,14 @@ function buildSingBoxVLESSOutbound(proxySettings, remark, address, port, host, s
     };
   return outbound;
 }
-__name(buildSingBoxVLESSOutbound, "buildSingBoxVLESSOutbound");
-function buildSingBoxTrojanOutbound(proxySettings, remark, address, port, host, sni, allowInsecure, isFragment) {
-  const { enableIPv6, lengthMin, lengthMax, intervalMin, intervalMax, proxyIP: proxyIP2 } = proxySettings;
-  const path = `/tr${getRandomPath(16)}${proxyIP2 ? `/${btoa(proxyIP2)}` : ""}`;
-  const tls = defaultHttpsPorts.includes(port) ? true : false;
+__name(buildSingBoxVLOutbound, "buildSingBoxVLOutbound");
+function buildSingBoxTROutbound(proxySettings, remark, address, port, host, sni, allowInsecure, isFragment) {
+  const { enableIPv6, lengthMin, lengthMax, intervalMin, intervalMax, proxyIP } = proxySettings;
+  const path = `/tr${getRandomPath(16)}${proxyIP ? `/${btoa(proxyIP)}` : ""}`;
+  const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
   const outbound = {
     type: "trojan",
-    password: trojanPassword,
+    password: globalThis.TRPassword,
     server: address,
     server_port: +port,
     domain_strategy: enableIPv6 ? "prefer_ipv4" : "ipv4_only",
@@ -8300,8 +8279,8 @@ function buildSingBoxTrojanOutbound(proxySettings, remark, address, port, host, 
     };
   return outbound;
 }
-__name(buildSingBoxTrojanOutbound, "buildSingBoxTrojanOutbound");
-function buildSingBoxWarpOutbound(proxySettings, warpConfigs, remark, endpoint, chain, client2) {
+__name(buildSingBoxTROutbound, "buildSingBoxTROutbound");
+function buildSingBoxWarpOutbound(proxySettings, warpConfigs, remark, endpoint, chain, client) {
   const ipv6Regex = /\[(.*?)\]/;
   const portRegex = /[^:]*$/;
   const endpointServer = endpoint.includes("[") ? endpoint.match(ipv6Regex)[1] : endpoint.split(":")[0];
@@ -8338,7 +8317,7 @@ function buildSingBoxWarpOutbound(proxySettings, warpConfigs, remark, endpoint, 
     detour: chain,
     tag: remark
   };
-  client2 === "hiddify" && Object.assign(outbound, {
+  client === "hiddify" && Object.assign(outbound, {
     fake_packets_mode: hiddifyNoiseMode,
     fake_packets: noiseCountMin === noiseCountMax ? noiseCountMin : `${noiseCountMin}-${noiseCountMax}`,
     fake_packets_size: noiseSizeMin === noiseSizeMax ? noiseSizeMin : `${noiseSizeMin}-${noiseSizeMax}`,
@@ -8427,13 +8406,11 @@ function buildSingBoxChainOutbound(chainProxyParams, enableIPv6) {
   return chainOutbound;
 }
 __name(buildSingBoxChainOutbound, "buildSingBoxChainOutbound");
-async function getSingBoxWarpConfig(request, env, client2) {
-  const { kvNotFound, proxySettings, warpConfigs } = await getDataset(request, env);
-  if (kvNotFound)
-    return await renderErrorPage(request, env, "KV Dataset is not properly set!", null, true);
+async function getSingBoxWarpConfig(request, env, client) {
+  const { proxySettings, warpConfigs } = await getDataset(request, env);
   const { warpEndpoints } = proxySettings;
   const config = structuredClone(singboxConfigTemp);
-  const proIndicator = client2 === "hiddify" ? " Pro " : " ";
+  const proIndicator = client === "hiddify" ? " Pro " : " ";
   const dnsObject = buildSingBoxDNS(proxySettings, void 0, true, `\u{1F4A6} Warp${proIndicator}- Best Ping \u{1F680}`);
   const { rules, rule_set } = buildSingBoxRoutingRules(proxySettings);
   config.dns.servers = dnsObject.servers;
@@ -8455,8 +8432,8 @@ async function getSingBoxWarpConfig(request, env, client2) {
   warpEndpoints.split(",").forEach((endpoint, index) => {
     const warpRemark = `\u{1F4A6} ${index + 1} - Warp \u{1F1EE}\u{1F1F7}`;
     const WoWRemark = `\u{1F4A6} ${index + 1} - WoW \u{1F30D}`;
-    const warpOutbound = buildSingBoxWarpOutbound(proxySettings, warpConfigs, warpRemark, endpoint, "", client2);
-    const WoWOutbound = buildSingBoxWarpOutbound(proxySettings, warpConfigs, WoWRemark, endpoint, warpRemark, client2);
+    const warpOutbound = buildSingBoxWarpOutbound(proxySettings, warpConfigs, warpRemark, endpoint, "", client);
+    const WoWOutbound = buildSingBoxWarpOutbound(proxySettings, warpConfigs, WoWRemark, endpoint, warpRemark, client);
     config.outbounds.push(WoWOutbound, warpOutbound);
     warpRemarks.push(warpRemark);
     WoWRemarks.push(WoWRemark);
@@ -8475,22 +8452,19 @@ async function getSingBoxWarpConfig(request, env, client2) {
 }
 __name(getSingBoxWarpConfig, "getSingBoxWarpConfig");
 async function getSingBoxCustomConfig(request, env, isFragment) {
-  await initializeParams(request, env);
-  const { kvNotFound, proxySettings } = await getDataset(request, env);
-  if (kvNotFound)
-    return await renderErrorPage(request, env, "KV Dataset is not properly set!", null, true);
+  const { proxySettings } = await getDataset(request, env);
   let chainProxy;
   const {
     cleanIPs,
     ports,
-    vlessConfigs,
-    trojanConfigs,
+    VLConfigs,
+    TRConfigs,
     outProxy,
     outProxyParams,
     customCdnAddrs,
     customCdnHost,
     customCdnSni,
-    bestVLESSTrojanInterval,
+    bestVLTRInterval,
     enableIPv6
   } = proxySettings;
   if (outProxy) {
@@ -8500,14 +8474,14 @@ async function getSingBoxCustomConfig(request, env, isFragment) {
     } catch (error) {
       console.log("An error occured while parsing chain proxy: ", error);
       chainProxy = void 0;
-      await env.obobob.put("proxySettings", JSON.stringify({
+      await env.kv.put("proxySettings", JSON.stringify({
         ...proxySettings,
         outProxy: "",
         outProxyParams: {}
       }));
     }
   }
-  const Addresses = await getConfigAddresses(hostName, cleanIPs, enableIPv6);
+  const Addresses = await getConfigAddresses(cleanIPs, enableIPv6);
   const customCdnAddresses = customCdnAddrs ? customCdnAddrs.split(",") : [];
   const totalAddresses = [...Addresses, ...customCdnAddresses];
   const config = structuredClone(singboxConfigTemp);
@@ -8522,26 +8496,26 @@ async function getSingBoxCustomConfig(request, env, isFragment) {
   const selector = config.outbounds[0];
   const urlTest = config.outbounds[1];
   selector.outbounds = ["\u{1F4A6} Best Ping \u{1F4A5}"];
-  urlTest.interval = `${bestVLESSTrojanInterval}s`;
+  urlTest.interval = `${bestVLTRInterval}s`;
   urlTest.tag = "\u{1F4A6} Best Ping \u{1F4A5}";
-  const totalPorts = ports.filter((port) => isFragment ? defaultHttpsPorts.includes(port) : true);
+  const totalPorts = ports.filter((port) => isFragment ? globalThis.defaultHttpsPorts.includes(port) : true);
   let proxyIndex = 1;
   const protocols = [
-    ...vlessConfigs ? ["VLESS"] : [],
-    ...trojanConfigs ? ["Trojan"] : []
+    ...VLConfigs ? ["VLESS"] : [],
+    ...TRConfigs ? ["Trojan"] : []
   ];
   protocols.forEach((protocol) => {
     let protocolIndex = 1;
     totalPorts.forEach((port) => {
       totalAddresses.forEach((addr) => {
-        let VLESSOutbound, TrojanOutbound;
+        let VLOutbound, TROutbound;
         const isCustomAddr = customCdnAddresses.includes(addr);
         const configType = isCustomAddr ? "C" : isFragment ? "F" : "";
-        const sni = isCustomAddr ? customCdnSni : randomUpperCase(hostName);
-        const host = isCustomAddr ? customCdnHost : hostName;
+        const sni = isCustomAddr ? customCdnSni : randomUpperCase(globalThis.hostName);
+        const host = isCustomAddr ? customCdnHost : globalThis.hostName;
         const remark = generateRemark(protocolIndex, port, addr, cleanIPs, protocol, configType);
         if (protocol === "VLESS") {
-          VLESSOutbound = buildSingBoxVLESSOutbound(
+          VLOutbound = buildSingBoxVLOutbound(
             proxySettings,
             chainProxy ? `proxy-${proxyIndex}` : remark,
             addr,
@@ -8551,10 +8525,10 @@ async function getSingBoxCustomConfig(request, env, isFragment) {
             isCustomAddr,
             isFragment
           );
-          config.outbounds.push(VLESSOutbound);
+          config.outbounds.push(VLOutbound);
         }
         if (protocol === "Trojan") {
-          TrojanOutbound = buildSingBoxTrojanOutbound(
+          TROutbound = buildSingBoxTROutbound(
             proxySettings,
             chainProxy ? `proxy-${proxyIndex}` : remark,
             addr,
@@ -8564,7 +8538,7 @@ async function getSingBoxCustomConfig(request, env, isFragment) {
             isCustomAddr,
             isFragment
           );
-          config.outbounds.push(TrojanOutbound);
+          config.outbounds.push(TROutbound);
         }
         if (chainProxy) {
           const chain = structuredClone(chainProxy);
@@ -8692,7 +8666,7 @@ async function buildClashDNS(proxySettings, isChain, isWarp) {
   const {
     remoteDNS,
     localDNS,
-    vlessTrojanFakeDNS,
+    VLTRFakeDNS,
     outProxyParams,
     enableIPv6,
     warpFakeDNS,
@@ -8700,11 +8674,10 @@ async function buildClashDNS(proxySettings, isChain, isWarp) {
     bypassIran,
     bypassChina,
     bypassRussia,
-    customBypassRules,
-    customBlockRules
+    customBypassRules
   } = proxySettings;
   const warpRemoteDNS = warpEnableIPv6 ? ["1.1.1.1", "1.0.0.1", "[2606:4700:4700::1111]", "[2606:4700:4700::1001]"] : ["1.1.1.1", "1.0.0.1"];
-  const isFakeDNS = vlessTrojanFakeDNS && !isWarp || warpFakeDNS && isWarp;
+  const isFakeDNS = VLTRFakeDNS && !isWarp || warpFakeDNS && isWarp;
   const isIPv62 = enableIPv6 && !isWarp || warpEnableIPv6 && isWarp;
   const customBypassRulesDomains = customBypassRules.split(",").filter((address) => isDomain(address));
   const isBypass = bypassIran || bypassChina || bypassRussia;
@@ -8915,15 +8888,15 @@ function buildClashRoutingRules(proxySettings) {
   return { rules, ruleProviders };
 }
 __name(buildClashRoutingRules, "buildClashRoutingRules");
-function buildClashVLESSOutbound(remark, address, port, host, sni, path, allowInsecure) {
-  const tls = defaultHttpsPorts.includes(port) ? true : false;
+function buildClashVLOutbound(remark, address, port, host, sni, path, allowInsecure) {
+  const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
   const addr = isIPv6(address) ? address.replace(/\[|\]/g, "") : address;
   const outbound = {
     "name": remark,
     "type": "vless",
     "server": addr,
     "port": +port,
-    "uuid": userID,
+    "uuid": globalThis.userID,
     "tls": tls,
     "network": "ws",
     "udp": true,
@@ -8944,15 +8917,15 @@ function buildClashVLESSOutbound(remark, address, port, host, sni, path, allowIn
   }
   return outbound;
 }
-__name(buildClashVLESSOutbound, "buildClashVLESSOutbound");
-function buildClashTrojanOutbound(remark, address, port, host, sni, path, allowInsecure) {
+__name(buildClashVLOutbound, "buildClashVLOutbound");
+function buildClashTROutbound(remark, address, port, host, sni, path, allowInsecure) {
   const addr = isIPv6(address) ? address.replace(/\[|\]/g, "") : address;
   return {
     "name": remark,
     "type": "trojan",
     "server": addr,
     "port": +port,
-    "password": trojanPassword,
+    "password": globalThis.TRPassword,
     "network": "ws",
     "udp": true,
     "ws-opts": {
@@ -8967,7 +8940,7 @@ function buildClashTrojanOutbound(remark, address, port, host, sni, path, allowI
     "skip-cert-verify": allowInsecure
   };
 }
-__name(buildClashTrojanOutbound, "buildClashTrojanOutbound");
+__name(buildClashTROutbound, "buildClashTROutbound");
 function buildClashWarpOutbound(warpConfigs, remark, endpoint, chain) {
   const ipv6Regex = /\[(.*?)\]/;
   const portRegex = /[^:]*$/;
@@ -9072,9 +9045,7 @@ function buildClashChainOutbound(chainProxyParams) {
 }
 __name(buildClashChainOutbound, "buildClashChainOutbound");
 async function getClashWarpConfig(request, env) {
-  const { kvNotFound, proxySettings, warpConfigs } = await getDataset(request, env);
-  if (kvNotFound)
-    return await renderErrorPage(request, env, "KV Dataset is not properly set!", null, true);
+  const { proxySettings, warpConfigs } = await getDataset(request, env);
   const { warpEndpoints } = proxySettings;
   const config = structuredClone(clashConfigTemp);
   config.dns = await buildClashDNS(proxySettings, true, true);
@@ -9113,24 +9084,21 @@ async function getClashWarpConfig(request, env) {
 }
 __name(getClashWarpConfig, "getClashWarpConfig");
 async function getClashNormalConfig(request, env) {
-  await initializeParams(request, env);
-  const { kvNotFound, proxySettings } = await getDataset(request, env);
-  if (kvNotFound)
-    return await renderErrorPage(request, env, "KV Dataset is not properly set!", null, true);
+  const { proxySettings } = await getDataset(request, env);
   let chainProxy;
   const {
     resolvedRemoteDNS,
     cleanIPs,
-    proxyIP: proxyIP2,
+    proxyIP,
     ports,
-    vlessConfigs,
-    trojanConfigs,
+    VLConfigs,
+    TRConfigs,
     outProxy,
     outProxyParams,
     customCdnAddrs,
     customCdnHost,
     customCdnSni,
-    bestVLESSTrojanInterval,
+    bestVLTRInterval,
     enableIPv6
   } = proxySettings;
   if (outProxy) {
@@ -9140,7 +9108,7 @@ async function getClashNormalConfig(request, env) {
     } catch (error) {
       console.log("An error occured while parsing chain proxy: ", error);
       chainProxy = void 0;
-      await env.obobob.put("proxySettings", JSON.stringify({
+      await env.kv.put("proxySettings", JSON.stringify({
         ...proxySettings,
         outProxy: "",
         outProxyParams: {}
@@ -9163,28 +9131,28 @@ async function getClashNormalConfig(request, env) {
   const urlTest = config["proxy-groups"][1];
   selector.proxies = ["\u{1F4A6} Best Ping \u{1F4A5}"];
   urlTest.name = "\u{1F4A6} Best Ping \u{1F4A5}";
-  urlTest.interval = +bestVLESSTrojanInterval;
-  const Addresses = await getConfigAddresses(hostName, cleanIPs, enableIPv6);
+  urlTest.interval = +bestVLTRInterval;
+  const Addresses = await getConfigAddresses(cleanIPs, enableIPv6);
   const customCdnAddresses = customCdnAddrs ? customCdnAddrs.split(",") : [];
   const totalAddresses = [...Addresses, ...customCdnAddresses];
   let proxyIndex = 1, path;
   const protocols = [
-    ...vlessConfigs ? ["VLESS"] : [],
-    ...trojanConfigs ? ["Trojan"] : []
+    ...VLConfigs ? ["VLESS"] : [],
+    ...TRConfigs ? ["Trojan"] : []
   ];
   protocols.forEach((protocol) => {
     let protocolIndex = 1;
     ports.forEach((port) => {
       totalAddresses.forEach((addr) => {
-        let VLESSOutbound, TrojanOutbound;
+        let VLOutbound, TROutbound;
         const isCustomAddr = customCdnAddresses.includes(addr);
         const configType = isCustomAddr ? "C" : "";
-        const sni = isCustomAddr ? customCdnSni : randomUpperCase(hostName);
-        const host = isCustomAddr ? customCdnHost : hostName;
+        const sni = isCustomAddr ? customCdnSni : randomUpperCase(globalThis.hostName);
+        const host = isCustomAddr ? customCdnHost : globalThis.hostName;
         const remark = generateRemark(protocolIndex, port, addr, cleanIPs, protocol, configType).replace(" : ", " - ");
         if (protocol === "VLESS") {
-          path = `/${getRandomPath(16)}${proxyIP2 ? `/${btoa(proxyIP2)}` : ""}`;
-          VLESSOutbound = buildClashVLESSOutbound(
+          path = `/${getRandomPath(16)}${proxyIP ? `/${btoa(proxyIP)}` : ""}`;
+          VLOutbound = buildClashVLOutbound(
             chainProxy ? `proxy-${proxyIndex}` : remark,
             addr,
             port,
@@ -9193,13 +9161,13 @@ async function getClashNormalConfig(request, env) {
             path,
             isCustomAddr
           );
-          config.proxies.push(VLESSOutbound);
+          config.proxies.push(VLOutbound);
           selector.proxies.push(remark);
           urlTest.proxies.push(remark);
         }
-        if (protocol === "Trojan" && defaultHttpsPorts.includes(port)) {
-          path = `/tr${getRandomPath(16)}${proxyIP2 ? `/${btoa(proxyIP2)}` : ""}`;
-          TrojanOutbound = buildClashTrojanOutbound(
+        if (protocol === "Trojan" && globalThis.defaultHttpsPorts.includes(port)) {
+          path = `/tr${getRandomPath(16)}${proxyIP ? `/${btoa(proxyIP)}` : ""}`;
+          TROutbound = buildClashTROutbound(
             chainProxy ? `proxy-${proxyIndex}` : remark,
             addr,
             port,
@@ -9208,7 +9176,7 @@ async function getClashNormalConfig(request, env) {
             path,
             isCustomAddr
           );
-          config.proxies.push(TrojanOutbound);
+          config.proxies.push(TROutbound);
           selector.proxies.push(remark);
           urlTest.proxies.push(remark);
         }
@@ -9309,46 +9277,43 @@ var clashConfigTemp = {
 
 // src/cores-configs/normalConfigs.js
 async function getNormalConfigs(request, env) {
-  await initializeParams(request, env);
-  const { kvNotFound, proxySettings } = await getDataset(request, env);
-  if (kvNotFound)
-    return await renderErrorPage(request, env, "KV Dataset is not properly set!", null, true);
+  const { proxySettings } = await getDataset(request, env);
   const {
     cleanIPs,
-    proxyIP: proxyIP2,
+    proxyIP,
     ports,
-    vlessConfigs,
-    trojanConfigs,
+    VLConfigs,
+    TRConfigs,
     outProxy,
     customCdnAddrs,
     customCdnHost,
     customCdnSni,
     enableIPv6
   } = proxySettings;
-  let vlessConfs = "", trojanConfs = "", chainProxy = "";
+  let VLConfs = "", TRConfs = "", chainProxy = "";
   let proxyIndex = 1;
-  const Addresses = await getConfigAddresses(hostName, cleanIPs, enableIPv6);
+  const Addresses = await getConfigAddresses(cleanIPs, enableIPv6);
   const customCdnAddresses = customCdnAddrs ? customCdnAddrs.split(",") : [];
   const totalAddresses = [...Addresses, ...customCdnAddresses];
-  const alpn = client === "singbox" ? "http/1.1" : "h2,http/1.1";
-  const trojanPass = encodeURIComponent(trojanPassword);
-  const earlyData = client === "singbox" ? "&eh=Sec-WebSocket-Protocol&ed=2560" : encodeURIComponent("?ed=2560");
+  const alpn = globalThis.client === "singbox" ? "http/1.1" : "h2,http/1.1";
+  const TRPass = encodeURIComponent(globalThis.TRPassword);
+  const earlyData = globalThis.client === "singbox" ? "&eh=Sec-WebSocket-Protocol&ed=2560" : encodeURIComponent("?ed=2560");
   ports.forEach((port) => {
     totalAddresses.forEach((addr, index) => {
       const isCustomAddr = index > Addresses.length - 1;
       const configType = isCustomAddr ? "C" : "";
-      const sni = isCustomAddr ? customCdnSni : randomUpperCase(hostName);
-      const host = isCustomAddr ? customCdnHost : hostName;
-      const path = `${getRandomPath(16)}${proxyIP2 ? `/${encodeURIComponent(btoa(proxyIP2))}` : ""}${earlyData}`;
-      const vlessRemark = encodeURIComponent(generateRemark(proxyIndex, port, addr, cleanIPs, "VLESS", configType));
-      const trojanRemark = encodeURIComponent(generateRemark(proxyIndex, port, addr, cleanIPs, "Trojan", configType));
-      const tlsFields = defaultHttpsPorts.includes(port) ? `&security=tls&sni=${sni}&fp=randomized&alpn=${alpn}` : "&security=none";
-      if (vlessConfigs) {
-        vlessConfs += `${atob("dmxlc3M")}://${userID}@${addr}:${port}?path=/${path}&encryption=none&host=${host}&type=ws${tlsFields}#${vlessRemark}
+      const sni = isCustomAddr ? customCdnSni : randomUpperCase(globalThis.hostName);
+      const host = isCustomAddr ? customCdnHost : globalThis.hostName;
+      const path = `${getRandomPath(16)}${proxyIP ? `/${encodeURIComponent(btoa(proxyIP))}` : ""}${earlyData}`;
+      const VLRemark = encodeURIComponent(generateRemark(proxyIndex, port, addr, cleanIPs, "VLESS", configType));
+      const TRRemark = encodeURIComponent(generateRemark(proxyIndex, port, addr, cleanIPs, "Trojan", configType));
+      const tlsFields = globalThis.defaultHttpsPorts.includes(port) ? `&security=tls&sni=${sni}&fp=randomized&alpn=${alpn}` : "&security=none";
+      if (VLConfigs) {
+        VLConfs += `${atob("dmxlc3M6Ly8=")}${globalThis.userID}@${addr}:${port}?path=/${path}&encryption=none&host=${host}&type=ws${tlsFields}#${VLRemark}
 `;
       }
-      if (trojanConfigs) {
-        trojanConfs += `${atob("dHJvamFu")}://${trojanPass}@${addr}:${port}?path=/tr${path}&host=${host}&type=ws${tlsFields}#${trojanRemark}
+      if (TRConfigs) {
+        TRConfs += `${atob("dHJvamFuOi8v")}${TRPass}@${addr}:${port}?path=/tr${path}&host=${host}&type=ws${tlsFields}#${TRRemark}
 `;
       }
       proxyIndex++;
@@ -9365,7 +9330,7 @@ async function getNormalConfigs(request, env) {
       chainProxy = outProxy.split("#")[0] + chainRemark;
     }
   }
-  const configs = btoa(vlessConfs + trojanConfs + chainProxy);
+  const configs = btoa(VLConfs + TRConfs + chainProxy);
   return new Response(configs, {
     status: 200,
     headers: {
@@ -9377,32 +9342,205 @@ async function getNormalConfigs(request, env) {
 }
 __name(getNormalConfigs, "getNormalConfigs");
 
+// src/pages/secrets.js
+async function renderSecretsPage() {
+  const secretsPage = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BPB Generator</title>
+    <style>
+        :root {
+            --color: black;
+            --primary-color: #09639f;
+            --header-color: #09639f; 
+            --background-color: #fff;
+            --form-background-color: #f9f9f9;
+            --lable-text-color: #333;
+            --h2-color: #3b3b3b;
+            --border-color: #ddd;
+            --input-background-color: white;
+            --header-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
+        }
+        html, body { height: 100%; margin: 0; }
+        body {
+            font-family: system-ui;
+            background-color: var(--background-color);
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+        body.dark-mode {
+            --color: white;
+            --primary-color: #09639F;
+            --header-color: #3498DB; 
+            --background-color: #121212;
+            --form-background-color: #121212;
+            --lable-text-color: #DFDFDF;
+            --h2-color: #D5D5D5;
+            --border-color: #353535;
+            --input-background-color: #252525;
+            --header-shadow: 2px 2px 4px rgba(255, 255, 255, 0.25);
+        }
+        html, body { height: 100%; margin: 0; }
+        .container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+        }
+        h1 { font-size: 2.5rem; text-align: center; color: var(--header-color); margin: 0 auto 30px; text-shadow: var(--header-shadow); }        
+        h2 { text-align: center; color: var(--h2-color) }
+        strong { color: var(--lable-text-color); }
+        .output-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: var(--input-background-color);
+            color: var(--lable-text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 1rem;
+            word-wrap: break-word;
+        }
+        .output { flex: 1; margin-right: 10px; overflow-wrap: break-word; }
+        .copy-icon {
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            transition: color 0.2s;
+        }
+        .copy-icon:hover { color: #2980b9; }
+        .form-container {
+            background: var(--form-background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        .form-control { margin-bottom: 15px; display: flex; align-items: center; }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            background-color: var(--primary-color);
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .button:hover,
+        button:focus {
+            background-color: #2980b9;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+            transform: translateY(-2px);
+        }
+        button.button:hover { color: white; }
+        .button:active { transform: translateY(1px); box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3); }
+        @media only screen and (min-width: 768px) {
+            .container { width: 40%; }
+        }
+    </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>BPB Panel <span style="font-size: smaller;">${globalThis.panelVersion}</span> \u{1F4A6}</h1>
+            <div class="form-container">
+                <h2>Secrets generator</h2>
+                <div>
+                    <strong>Random UUID</strong>
+                    <div class="output-container">
+                        <span id="uuid" class="output"></span>
+                        <span class="copy-icon" onclick="copyToClipboard('uuid')">\u{1F4CB}</span>
+                    </div>
+                </div>
+                <div>
+                    <strong>Random Trojan Password</strong>
+                    <div class="output-container">
+                        <span id="trojan-password" class="output"></span>
+                        <span class="copy-icon" onclick="copyToClipboard('trojan-password')">\u{1F4CB}</span>
+                    </div>
+                </div>
+                <button class="button" onclick="generateCredentials()">Generate Again \u267B\uFE0F</button>
+            </div>
+        </div>
+        <script>
+            localStorage.getItem('darkMode') === 'enabled' && document.body.classList.add('dark-mode');
+            function generateUUID() {
+                return crypto.randomUUID();
+            }
+    
+            function generateStrongPassword() {
+                const charset =
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+[]{}|;:',.<>?";
+                let password = '';
+                const randomValues = new Uint8Array(16);
+                crypto.getRandomValues(randomValues);
+    
+                for (let i = 0; i < 16; i++) {
+                    password += charset[randomValues[i] % charset.length];
+                }
+                return password;
+            }
+    
+            function generateCredentials() {
+                const uuid = generateUUID();
+                const password = generateStrongPassword();
+    
+                document.getElementById('uuid').textContent = uuid;
+                document.getElementById('trojan-password').textContent = password;
+            }
+    
+            function copyToClipboard(elementId) {
+                const textToCopy = document.getElementById(elementId).textContent;
+                navigator.clipboard.writeText(textToCopy)
+                    .then(() => alert('\u2705 Copied to clipboard!'))
+                    .catch(err => console.error('Failed to copy text:', err));
+            }
+    
+            generateCredentials();
+        <\/script>
+    </body>
+    </html>`;
+  return new Response(secretsPage, { status: 200, headers: { "Content-Type": "text/html" } });
+}
+__name(renderSecretsPage, "renderSecretsPage");
+
 // src/worker.js
 var worker_default = {
   async fetch(request, env) {
     try {
+      initializeParams(request, env);
       const upgradeHeader = request.headers.get("Upgrade");
-      await initializeParams(request, env);
       if (!upgradeHeader || upgradeHeader !== "websocket") {
-        switch (pathName) {
+        switch (globalThis.pathName) {
           case "/update-warp":
             return await updateWarpConfigs(request, env);
-          case `/sub/${userID}`:
-            if (client === "sfa")
+          case `/sub/${globalThis.userID}`:
+            if (globalThis.client === "sfa")
               return await getSingBoxCustomConfig(request, env, false);
-            if (client === "clash")
+            if (globalThis.client === "clash")
               return await getClashNormalConfig(request, env);
-            if (client === "xray")
+            if (globalThis.client === "xray")
               return await getXrayCustomConfigs(request, env, false);
             return await getNormalConfigs(request, env);
-          case `/fragsub/${userID}`:
-            return client === "hiddify" ? await getSingBoxCustomConfig(request, env, true) : await getXrayCustomConfigs(request, env, true);
-          case `/warpsub/${userID}`:
-            if (client === "clash")
+          case `/fragsub/${globalThis.userID}`:
+            return globalThis.client === "hiddify" ? await getSingBoxCustomConfig(request, env, true) : await getXrayCustomConfigs(request, env, true);
+          case `/warpsub/${globalThis.userID}`:
+            if (globalThis.client === "clash")
               return await getClashWarpConfig(request, env);
-            if (client === "singbox" || client === "hiddify")
-              return await getSingBoxWarpConfig(request, env, client);
-            return await getXrayWarpConfigs(request, env, client);
+            if (globalThis.client === "singbox" || globalThis.client === "hiddify")
+              return await getSingBoxWarpConfig(request, env, globalThis.client);
+            return await getXrayWarpConfigs(request, env, globalThis.client);
           case "/panel":
             return await handlePanel(request, env);
           case "/login":
@@ -9413,17 +9551,32 @@ var worker_default = {
             return await resetPassword(request, env);
           case "/my-ip":
             return await getMyIP(request);
+          case "/secrets":
+            return await renderSecretsPage();
           default:
             return await fallback(request);
         }
       } else {
-        return pathName.startsWith("/tr") ? await trojanOverWSHandler(request, env) : await vlessOverWSHandler(request, env);
+        return globalThis.pathName.startsWith("/tr") ? await TROverWSHandler(request) : await VLOverWSHandler(request);
       }
     } catch (err) {
-      return await renderErrorPage(request, env, "Something went wrong!", err, false);
+      return await renderErrorPage(err);
     }
   }
 };
 export {
   worker_default as default
 };
+/*! Bundled license information:
+
+js-sha256/src/sha256.js:
+  (**
+   * [js-sha256]{@link https://github.com/emn178/js-sha256}
+   *
+   * @version 0.11.0
+   * @author Chen, Yi-Cyuan [emn178@gmail.com]
+   * @copyright Chen, Yi-Cyuan 2014-2024
+   * @license MIT
+   *)
+*/
+//# sourceMappingURL=worker.js.map
