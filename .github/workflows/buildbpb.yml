@@ -31,10 +31,13 @@ jobs:
           cd BPB-Worker-Panel
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          cd worker/BPB-Worker-Panel
+          npm install
 
       - name: Build project
         run: |
+          cd worker/BPB-Worker-Panel
           npx wrangler deploy src/worker.js --name bpb-worker-panel --compatibility-flag [nodejs_compat] --compatibility-date 2024-10-26 --dry-run --outdir=dist
           cp -f dist/worker.js ../origin.js
           cd ..
