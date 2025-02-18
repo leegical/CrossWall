@@ -3186,6 +3186,11 @@ function checkSigCryptoKey(key, alg, ...usages) {
       }
       break;
     }
+    case "Ed25519": {
+      if (!isAlgorithm(key.algorithm, "Ed25519"))
+        throw unusable("Ed25519");
+      break;
+    }
     case "ES256":
     case "ES384":
     case "ES512": {
@@ -3378,6 +3383,10 @@ function subtleMapping(jwk) {
     }
     case "OKP": {
       switch (jwk.alg) {
+        case "Ed25519":
+          algorithm = { name: "Ed25519" };
+          keyUsages = jwk.d ? ["sign"] : ["verify"];
+          break;
         case "EdDSA":
           algorithm = { name: jwk.crv };
           keyUsages = jwk.d ? ["sign"] : ["verify"];
@@ -3496,7 +3505,7 @@ async function importJWK(jwk, alg) {
       }
       return decode(jwk.k);
     case "RSA":
-      if (jwk.oth !== void 0) {
+      if ("oth" in jwk && jwk.oth !== void 0) {
         throw new JOSENotSupported('RSA JWK "oth" (Other Primes Info) Parameter value is not supported');
       }
     case "EC":
@@ -3646,6 +3655,8 @@ function subtleDsa(alg, algorithm) {
     case "ES384":
     case "ES512":
       return { hash, name: "ECDSA", namedCurve: algorithm.namedCurve };
+    case "Ed25519":
+      return { name: "Ed25519" };
     case "EdDSA":
       return { name: algorithm.name };
     default:
