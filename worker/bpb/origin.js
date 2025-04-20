@@ -40,7 +40,7 @@ var require_crypto = __commonJS({
 // node_modules/tweetnacl/nacl-fast.js
 var require_nacl_fast = __commonJS({
   "node_modules/tweetnacl/nacl-fast.js"(exports, module) {
-    (function(nacl3) {
+    (function(nacl) {
       "use strict";
       var gf = /* @__PURE__ */ __name(function(init) {
         var i, r = new Float64Array(16);
@@ -2047,7 +2047,7 @@ var require_nacl_fast = __commonJS({
       }
       __name(crypto_sign_open, "crypto_sign_open");
       var crypto_secretbox_KEYBYTES = 32, crypto_secretbox_NONCEBYTES = 24, crypto_secretbox_ZEROBYTES = 32, crypto_secretbox_BOXZEROBYTES = 16, crypto_scalarmult_BYTES = 32, crypto_scalarmult_SCALARBYTES = 32, crypto_box_PUBLICKEYBYTES = 32, crypto_box_SECRETKEYBYTES = 32, crypto_box_BEFORENMBYTES = 32, crypto_box_NONCEBYTES = crypto_secretbox_NONCEBYTES, crypto_box_ZEROBYTES = crypto_secretbox_ZEROBYTES, crypto_box_BOXZEROBYTES = crypto_secretbox_BOXZEROBYTES, crypto_sign_BYTES = 64, crypto_sign_PUBLICKEYBYTES = 32, crypto_sign_SECRETKEYBYTES = 64, crypto_sign_SEEDBYTES = 32, crypto_hash_BYTES = 64;
-      nacl3.lowlevel = {
+      nacl.lowlevel = {
         crypto_core_hsalsa20,
         crypto_stream_xor,
         crypto_stream,
@@ -2124,12 +2124,12 @@ var require_nacl_fast = __commonJS({
         for (var i = 0; i < arr.length; i++) arr[i] = 0;
       }
       __name(cleanup, "cleanup");
-      nacl3.randomBytes = function(n) {
+      nacl.randomBytes = function(n) {
         var b = new Uint8Array(n);
         randombytes(b, n);
         return b;
       };
-      nacl3.secretbox = function(msg, nonce, key) {
+      nacl.secretbox = function(msg, nonce, key) {
         checkArrayTypes(msg, nonce, key);
         checkLengths(key, nonce);
         var m = new Uint8Array(crypto_secretbox_ZEROBYTES + msg.length);
@@ -2138,7 +2138,7 @@ var require_nacl_fast = __commonJS({
         crypto_secretbox(c, m, m.length, nonce, key);
         return c.subarray(crypto_secretbox_BOXZEROBYTES);
       };
-      nacl3.secretbox.open = function(box, nonce, key) {
+      nacl.secretbox.open = function(box, nonce, key) {
         checkArrayTypes(box, nonce, key);
         checkLengths(key, nonce);
         var c = new Uint8Array(crypto_secretbox_BOXZEROBYTES + box.length);
@@ -2148,10 +2148,10 @@ var require_nacl_fast = __commonJS({
         if (crypto_secretbox_open(m, c, c.length, nonce, key) !== 0) return null;
         return m.subarray(crypto_secretbox_ZEROBYTES);
       };
-      nacl3.secretbox.keyLength = crypto_secretbox_KEYBYTES;
-      nacl3.secretbox.nonceLength = crypto_secretbox_NONCEBYTES;
-      nacl3.secretbox.overheadLength = crypto_secretbox_BOXZEROBYTES;
-      nacl3.scalarMult = function(n, p) {
+      nacl.secretbox.keyLength = crypto_secretbox_KEYBYTES;
+      nacl.secretbox.nonceLength = crypto_secretbox_NONCEBYTES;
+      nacl.secretbox.overheadLength = crypto_secretbox_BOXZEROBYTES;
+      nacl.scalarMult = function(n, p) {
         checkArrayTypes(n, p);
         if (n.length !== crypto_scalarmult_SCALARBYTES) throw new Error("bad n size");
         if (p.length !== crypto_scalarmult_BYTES) throw new Error("bad p size");
@@ -2159,39 +2159,39 @@ var require_nacl_fast = __commonJS({
         crypto_scalarmult(q, n, p);
         return q;
       };
-      nacl3.scalarMult.base = function(n) {
+      nacl.scalarMult.base = function(n) {
         checkArrayTypes(n);
         if (n.length !== crypto_scalarmult_SCALARBYTES) throw new Error("bad n size");
         var q = new Uint8Array(crypto_scalarmult_BYTES);
         crypto_scalarmult_base(q, n);
         return q;
       };
-      nacl3.scalarMult.scalarLength = crypto_scalarmult_SCALARBYTES;
-      nacl3.scalarMult.groupElementLength = crypto_scalarmult_BYTES;
-      nacl3.box = function(msg, nonce, publicKey, secretKey) {
-        var k = nacl3.box.before(publicKey, secretKey);
-        return nacl3.secretbox(msg, nonce, k);
+      nacl.scalarMult.scalarLength = crypto_scalarmult_SCALARBYTES;
+      nacl.scalarMult.groupElementLength = crypto_scalarmult_BYTES;
+      nacl.box = function(msg, nonce, publicKey, secretKey) {
+        var k = nacl.box.before(publicKey, secretKey);
+        return nacl.secretbox(msg, nonce, k);
       };
-      nacl3.box.before = function(publicKey, secretKey) {
+      nacl.box.before = function(publicKey, secretKey) {
         checkArrayTypes(publicKey, secretKey);
         checkBoxLengths(publicKey, secretKey);
         var k = new Uint8Array(crypto_box_BEFORENMBYTES);
         crypto_box_beforenm(k, publicKey, secretKey);
         return k;
       };
-      nacl3.box.after = nacl3.secretbox;
-      nacl3.box.open = function(msg, nonce, publicKey, secretKey) {
-        var k = nacl3.box.before(publicKey, secretKey);
-        return nacl3.secretbox.open(msg, nonce, k);
+      nacl.box.after = nacl.secretbox;
+      nacl.box.open = function(msg, nonce, publicKey, secretKey) {
+        var k = nacl.box.before(publicKey, secretKey);
+        return nacl.secretbox.open(msg, nonce, k);
       };
-      nacl3.box.open.after = nacl3.secretbox.open;
-      nacl3.box.keyPair = function() {
+      nacl.box.open.after = nacl.secretbox.open;
+      nacl.box.keyPair = function() {
         var pk = new Uint8Array(crypto_box_PUBLICKEYBYTES);
         var sk = new Uint8Array(crypto_box_SECRETKEYBYTES);
         crypto_box_keypair(pk, sk);
         return { publicKey: pk, secretKey: sk };
       };
-      nacl3.box.keyPair.fromSecretKey = function(secretKey) {
+      nacl.box.keyPair.fromSecretKey = function(secretKey) {
         checkArrayTypes(secretKey);
         if (secretKey.length !== crypto_box_SECRETKEYBYTES)
           throw new Error("bad secret key size");
@@ -2199,12 +2199,12 @@ var require_nacl_fast = __commonJS({
         crypto_scalarmult_base(pk, secretKey);
         return { publicKey: pk, secretKey: new Uint8Array(secretKey) };
       };
-      nacl3.box.publicKeyLength = crypto_box_PUBLICKEYBYTES;
-      nacl3.box.secretKeyLength = crypto_box_SECRETKEYBYTES;
-      nacl3.box.sharedKeyLength = crypto_box_BEFORENMBYTES;
-      nacl3.box.nonceLength = crypto_box_NONCEBYTES;
-      nacl3.box.overheadLength = nacl3.secretbox.overheadLength;
-      nacl3.sign = function(msg, secretKey) {
+      nacl.box.publicKeyLength = crypto_box_PUBLICKEYBYTES;
+      nacl.box.secretKeyLength = crypto_box_SECRETKEYBYTES;
+      nacl.box.sharedKeyLength = crypto_box_BEFORENMBYTES;
+      nacl.box.nonceLength = crypto_box_NONCEBYTES;
+      nacl.box.overheadLength = nacl.secretbox.overheadLength;
+      nacl.sign = function(msg, secretKey) {
         checkArrayTypes(msg, secretKey);
         if (secretKey.length !== crypto_sign_SECRETKEYBYTES)
           throw new Error("bad secret key size");
@@ -2212,7 +2212,7 @@ var require_nacl_fast = __commonJS({
         crypto_sign(signedMsg, msg, msg.length, secretKey);
         return signedMsg;
       };
-      nacl3.sign.open = function(signedMsg, publicKey) {
+      nacl.sign.open = function(signedMsg, publicKey) {
         checkArrayTypes(signedMsg, publicKey);
         if (publicKey.length !== crypto_sign_PUBLICKEYBYTES)
           throw new Error("bad public key size");
@@ -2223,13 +2223,13 @@ var require_nacl_fast = __commonJS({
         for (var i = 0; i < m.length; i++) m[i] = tmp[i];
         return m;
       };
-      nacl3.sign.detached = function(msg, secretKey) {
-        var signedMsg = nacl3.sign(msg, secretKey);
+      nacl.sign.detached = function(msg, secretKey) {
+        var signedMsg = nacl.sign(msg, secretKey);
         var sig = new Uint8Array(crypto_sign_BYTES);
         for (var i = 0; i < sig.length; i++) sig[i] = signedMsg[i];
         return sig;
       };
-      nacl3.sign.detached.verify = function(msg, sig, publicKey) {
+      nacl.sign.detached.verify = function(msg, sig, publicKey) {
         checkArrayTypes(msg, sig, publicKey);
         if (sig.length !== crypto_sign_BYTES)
           throw new Error("bad signature size");
@@ -2242,13 +2242,13 @@ var require_nacl_fast = __commonJS({
         for (i = 0; i < msg.length; i++) sm[i + crypto_sign_BYTES] = msg[i];
         return crypto_sign_open(m, sm, sm.length, publicKey) >= 0;
       };
-      nacl3.sign.keyPair = function() {
+      nacl.sign.keyPair = function() {
         var pk = new Uint8Array(crypto_sign_PUBLICKEYBYTES);
         var sk = new Uint8Array(crypto_sign_SECRETKEYBYTES);
         crypto_sign_keypair(pk, sk);
         return { publicKey: pk, secretKey: sk };
       };
-      nacl3.sign.keyPair.fromSecretKey = function(secretKey) {
+      nacl.sign.keyPair.fromSecretKey = function(secretKey) {
         checkArrayTypes(secretKey);
         if (secretKey.length !== crypto_sign_SECRETKEYBYTES)
           throw new Error("bad secret key size");
@@ -2256,7 +2256,7 @@ var require_nacl_fast = __commonJS({
         for (var i = 0; i < pk.length; i++) pk[i] = secretKey[32 + i];
         return { publicKey: pk, secretKey: new Uint8Array(secretKey) };
       };
-      nacl3.sign.keyPair.fromSeed = function(seed) {
+      nacl.sign.keyPair.fromSeed = function(seed) {
         checkArrayTypes(seed);
         if (seed.length !== crypto_sign_SEEDBYTES)
           throw new Error("bad seed size");
@@ -2266,31 +2266,31 @@ var require_nacl_fast = __commonJS({
         crypto_sign_keypair(pk, sk, true);
         return { publicKey: pk, secretKey: sk };
       };
-      nacl3.sign.publicKeyLength = crypto_sign_PUBLICKEYBYTES;
-      nacl3.sign.secretKeyLength = crypto_sign_SECRETKEYBYTES;
-      nacl3.sign.seedLength = crypto_sign_SEEDBYTES;
-      nacl3.sign.signatureLength = crypto_sign_BYTES;
-      nacl3.hash = function(msg) {
+      nacl.sign.publicKeyLength = crypto_sign_PUBLICKEYBYTES;
+      nacl.sign.secretKeyLength = crypto_sign_SECRETKEYBYTES;
+      nacl.sign.seedLength = crypto_sign_SEEDBYTES;
+      nacl.sign.signatureLength = crypto_sign_BYTES;
+      nacl.hash = function(msg) {
         checkArrayTypes(msg);
         var h = new Uint8Array(crypto_hash_BYTES);
         crypto_hash(h, msg, msg.length);
         return h;
       };
-      nacl3.hash.hashLength = crypto_hash_BYTES;
-      nacl3.verify = function(x, y) {
+      nacl.hash.hashLength = crypto_hash_BYTES;
+      nacl.verify = function(x, y) {
         checkArrayTypes(x, y);
         if (x.length === 0 || y.length === 0) return false;
         if (x.length !== y.length) return false;
         return vn(x, 0, y, 0, x.length) === 0 ? true : false;
       };
-      nacl3.setPRNG = function(fn) {
+      nacl.setPRNG = function(fn) {
         randombytes = fn;
       };
       (function() {
         var crypto2 = typeof self !== "undefined" ? self.crypto || self.msCrypto : null;
         if (crypto2 && crypto2.getRandomValues) {
           var QUOTA = 65536;
-          nacl3.setPRNG(function(x, n) {
+          nacl.setPRNG(function(x, n) {
             var i, v = new Uint8Array(n);
             for (i = 0; i < n; i += QUOTA) {
               crypto2.getRandomValues(v.subarray(i, i + Math.min(n - i, QUOTA)));
@@ -2301,7 +2301,7 @@ var require_nacl_fast = __commonJS({
         } else if (typeof __require !== "undefined") {
           crypto2 = require_crypto();
           if (crypto2 && crypto2.randomBytes) {
-            nacl3.setPRNG(function(x, n) {
+            nacl.setPRNG(function(x, n) {
               var i, v = crypto2.randomBytes(n);
               for (i = 0; i < n; i++) x[i] = v[i];
               cleanup(v);
@@ -6683,7 +6683,7 @@ async function generateJWTToken(request, env) {
 }
 __name(generateJWTToken, "generateJWTToken");
 function generateSecretKey() {
-  const key = import_tweetnacl.default.randomBytes(32);
+  const key = (0, import_tweetnacl.randomBytes)(32);
   return Array.from(key, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 __name(generateSecretKey, "generateSecretKey");
@@ -6845,11 +6845,11 @@ async function fetchWarpConfigs(env) {
 __name(fetchWarpConfigs, "fetchWarpConfigs");
 var generateKeyPair = /* @__PURE__ */ __name(() => {
   const base64Encode = /* @__PURE__ */ __name((array) => btoa(String.fromCharCode.apply(null, array)), "base64Encode");
-  let privateKey = import_tweetnacl2.default.randomBytes(32);
+  let privateKey = (0, import_tweetnacl2.randomBytes)(32);
   privateKey[0] &= 248;
   privateKey[31] &= 127;
   privateKey[31] |= 64;
-  let publicKey = import_tweetnacl2.default.scalarMult.base(privateKey);
+  let publicKey = import_tweetnacl2.scalarMult.base(privateKey);
   const publicKeyBase64 = base64Encode(publicKey);
   const privateKeyBase64 = base64Encode(privateKey);
   return { publicKey: publicKeyBase64, privateKey: privateKeyBase64 };
@@ -6949,6 +6949,7 @@ async function updateDataset(request, env) {
     bypassIran: populateField("bypassIran", false, true),
     bypassChina: populateField("bypassChina", false, true),
     bypassRussia: populateField("bypassRussia", false, true),
+    bypassOpenAi: populateField("bypassOpenAi", false, true),
     blockAds: populateField("blockAds", false, true),
     blockPorn: populateField("blockPorn", false, true),
     blockUDP443: populateField("blockUDP443", false, true),
@@ -7030,6 +7031,7 @@ async function buildClashDNS(proxySettings, isChain, isWarp) {
     bypassIran,
     bypassChina,
     bypassRussia,
+    bypassOpenAi,
     customBypassRules
   } = proxySettings;
   const finalLocalDNS = localDNS === "localhost" ? "system" : `${localDNS}#DIRECT`;
@@ -7069,6 +7071,7 @@ async function buildClashDNS(proxySettings, isChain, isWarp) {
   customBypassRulesDomains.forEach((domain) => {
     dns["nameserver-policy"][`+.${domain}`] = [finalLocalDNS];
   });
+  if (bypassOpenAi) dns["nameserver-policy"]["rule-set:openai"] = `178.22.122.100#DIRECT`;
   const dohHost = getDomain(remoteDNS);
   if (dohHost.isHostDomain && !isWarp) {
     dns["default-nameserver"] = [`https://8.8.8.8/dns-query#\u2705 Selector`];
@@ -7087,6 +7090,7 @@ function buildClashRoutingRules(proxySettings, isWarp) {
     bypassIran,
     bypassChina,
     bypassRussia,
+    bypassOpenAi,
     blockAds,
     blockPorn,
     blockUDP443,
@@ -7140,6 +7144,15 @@ function buildClashRoutingRules(proxySettings, isWarp) {
       }
     },
     {
+      rule: bypassOpenAi,
+      type: "direct",
+      ruleProvider: {
+        format: "yaml",
+        geosite: "openai",
+        geositeURL: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/openai.yaml"
+      }
+    },
+    {
       rule: true,
       type: "block",
       ruleProvider: {
@@ -7171,8 +7184,8 @@ function buildClashRoutingRules(proxySettings, isWarp) {
       type: "block",
       ruleProvider: {
         format: "text",
-        geosite: "ads",
-        geositeURL: "https://raw.githubusercontent.com/Chocolate4U/Iran-clash-rules/release/ads.txt"
+        geosite: "category-ads-all",
+        geositeURL: "https://raw.githubusercontent.com/Chocolate4U/Iran-clash-rules/release/category-ads-all.txt"
       }
     },
     {
@@ -7741,6 +7754,7 @@ function buildSingBoxDNS(proxySettings, outboundAddrs, isWarp) {
     bypassIran,
     bypassChina,
     bypassRussia,
+    bypassOpenAi,
     blockAds,
     blockPorn,
     customBypassRules,
@@ -7782,6 +7796,11 @@ function buildSingBoxDNS(proxySettings, outboundAddrs, isWarp) {
     address: "https://8.8.8.8/dns-query",
     detour: "\u2705 Selector",
     tag: "doh-resolver"
+  });
+  bypassOpenAi && servers.push({
+    address: "178.22.122.100",
+    detour: "direct",
+    tag: "dns-openai"
   });
   let outboundRule;
   if (isWarp) {
@@ -7852,6 +7871,10 @@ function buildSingBoxDNS(proxySettings, outboundAddrs, isWarp) {
     });
     rules.push(domainBlockRule);
   }
+  bypassOpenAi && rules.push({
+    rule_set: "geosite-openai",
+    server: "dns-openai"
+  });
   if (isFakeDNS) {
     servers.push({
       address: "fakeip",
@@ -7881,6 +7904,7 @@ function buildSingBoxRoutingRules(proxySettings, isWarp) {
     bypassIran,
     bypassChina,
     bypassRussia,
+    bypassOpenAi,
     blockAds,
     blockPorn,
     blockUDP443,
@@ -7930,8 +7954,8 @@ function buildSingBoxRoutingRules(proxySettings, isWarp) {
       ruleSet: {
         geosite: "geosite-cn",
         geoip: "geoip-cn",
-        geositeURL: "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs",
-        geoipURL: "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs"
+        geositeURL: "https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geosite-cn.srs",
+        geoipURL: "https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geoip-cn.srs"
       }
     },
     {
@@ -7940,8 +7964,16 @@ function buildSingBoxRoutingRules(proxySettings, isWarp) {
       ruleSet: {
         geosite: "geosite-category-ru",
         geoip: "geoip-ru",
-        geositeURL: "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ru.srs",
-        geoipURL: "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs"
+        geositeURL: "https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geosite-category-ru.srs",
+        geoipURL: "https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geoip-ru.srs"
+      }
+    },
+    {
+      rule: bypassOpenAi,
+      type: "direct",
+      ruleSet: {
+        geosite: "geosite-openai",
+        geositeURL: "https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geosite-openai.srs"
       }
     },
     {
@@ -8522,6 +8554,7 @@ async function buildXrayDNS(proxySettings, outboundAddrs, domainToStaticIPs, isW
     bypassChina,
     blockPorn,
     bypassRussia,
+    bypassOpenAi,
     customBypassRules,
     customBlockRules
   } = proxySettings;
@@ -8579,6 +8612,11 @@ async function buildXrayDNS(proxySettings, outboundAddrs, domainToStaticIPs, isW
     domains: [`full:${dohHost.host}`],
     skipFallback: true
   });
+  if (bypassOpenAi) dnsObject.servers.push({
+    address: "178.22.122.100",
+    domains: ["geosite:openai"],
+    skipFallback: true
+  });
   if (isDomainRule) {
     const outboundDomainRules = uniqueOutboundDomains.map((domain) => `full:${domain}`);
     const bypassDomainRules = customBypassRulesDomains.map((domain) => `domain:${domain}`);
@@ -8617,6 +8655,7 @@ function buildXrayRoutingRules(proxySettings, outboundAddrs, isChain, isBalancer
     bypassIran,
     bypassChina,
     bypassRussia,
+    bypassOpenAi,
     blockAds,
     blockPorn,
     blockUDP443,
@@ -8627,6 +8666,8 @@ function buildXrayRoutingRules(proxySettings, outboundAddrs, isChain, isBalancer
     { rule: bypassLAN, type: "direct", domain: "geosite:private", ip: "geoip:private" },
     { rule: bypassIran, type: "direct", domain: "geosite:category-ir", ip: "geoip:ir" },
     { rule: bypassChina, type: "direct", domain: "geosite:cn", ip: "geoip:cn" },
+    { rule: bypassRussia, type: "direct", domain: "geosite:ru", ip: "geoip:ru" },
+    { rule: bypassOpenAi, type: "direct", domain: "geosite:openai" },
     { rule: blockAds, type: "block", domain: "geosite:category-ads-all" },
     { rule: blockAds, type: "block", domain: "geosite:category-ads-ir" },
     { rule: blockPorn, type: "block", domain: "geosite:category-porn" }
@@ -8635,7 +8676,7 @@ function buildXrayRoutingRules(proxySettings, outboundAddrs, isChain, isBalancer
   const customBypassRulesDomains = customBypassRules.filter((address) => isDomain(address));
   const isDomainRule = [...outboundDomains, ...customBypassRulesDomains].length > 0;
   const isBlock = blockAds || blockPorn || customBlockRules.length > 0;
-  const isBypass = bypassIran || bypassChina || bypassRussia || customBypassRules.length > 0;
+  const isBypass = bypassIran || bypassChina || bypassRussia || bypassOpenAi || customBypassRules.length > 0;
   const finallOutboundTag = isChain ? "chain" : isWorkerLess ? "fragment" : "proxy";
   const rules = [
     {
@@ -8661,6 +8702,11 @@ function buildXrayRoutingRules(proxySettings, outboundAddrs, isChain, isBalancer
     outboundTag: "direct",
     type: "field"
   });
+  bypassOpenAi && rules.push({
+    ip: ["178.22.122.100"],
+    outboundTag: "direct",
+    type: "field"
+  });
   if (!isWorkerLess) rules.push({
     inboundTag: ["dns"],
     [isBalancer ? "balancerTag" : "outboundTag"]: isBalancer ? "all" : finallOutboundTag,
@@ -8678,18 +8724,15 @@ function buildXrayRoutingRules(proxySettings, outboundAddrs, isChain, isBalancer
       outboundTag: outbound,
       type: "field"
     }), "createRule");
-    let domainDirectRule, ipDirectRule;
-    if (!isWorkerLess) {
-      domainDirectRule = createRule("domain", "direct");
-      ipDirectRule = createRule("ip", "direct");
-    }
+    let domainDirectRule = createRule("domain", "direct");
+    let ipDirectRule = createRule("ip", "direct");
     let domainBlockRule = createRule("domain", "block");
     let ipBlockRule = createRule("ip", "block");
     geoRules.forEach(({ rule, type, domain, ip }) => {
       if (rule) {
         if (type === "direct") {
           domainDirectRule?.domain.push(domain);
-          ipDirectRule?.ip?.push(ip);
+          ip && ipDirectRule?.ip?.push(ip);
         } else {
           domainBlockRule.domain.push(domain);
         }
@@ -8711,10 +8754,8 @@ function buildXrayRoutingRules(proxySettings, outboundAddrs, isChain, isBalancer
     });
     domainBlockRule.domain.length && rules.push(domainBlockRule);
     ipBlockRule.ip.length && rules.push(ipBlockRule);
-    if (!isWorkerLess) {
-      domainDirectRule.domain.length && rules.push(domainDirectRule);
-      ipDirectRule.ip.length && rules.push(ipDirectRule);
-    }
+    domainDirectRule.domain.length && rules.push(domainDirectRule);
+    ipDirectRule.ip.length && rules.push(ipDirectRule);
   }
   if (isBalancer) {
     rules.push({
@@ -8724,7 +8765,7 @@ function buildXrayRoutingRules(proxySettings, outboundAddrs, isChain, isBalancer
     });
   } else {
     rules.push({
-      network: isWarp ? "tcp,udp" : "tcp",
+      network: isWarp || isWorkerLess ? "tcp,udp" : "tcp",
       outboundTag: finallOutboundTag,
       type: "field"
     });
@@ -9092,7 +9133,7 @@ async function buildXrayBestPingConfig(proxySettings, totalAddresses, chainProxy
   const remark = isFragment ? `\u{1F4A6} BPB F - Best Ping \u{1F4A5}` : `\u{1F4A6} BPB - Best Ping \u{1F4A5}`;
   const config = buildXrayConfig(proxySettings, remark, true, chainProxy, true);
   config.dns = await buildXrayDNS(proxySettings, totalAddresses, void 0, false, false);
-  config.routing.rules = buildXrayRoutingRules(proxySettings, totalAddresses, chainProxy, true, false, true);
+  config.routing.rules = buildXrayRoutingRules(proxySettings, totalAddresses, chainProxy, true, false, false);
   config.outbounds.unshift(...outbounds);
   return config;
 }
@@ -9462,7 +9503,7 @@ async function handleLogin(request, env) {
 __name(handleLogin, "handleLogin");
 async function handleSubscriptions(request, env) {
   const { subPath, pathName: pathName2 } = globalThis;
-  switch (pathName2) {
+  switch (decodeURIComponent(pathName2)) {
     case `/sub/normal/${subPath}`:
       return await getNormalSub(request, env);
     case `/sub/full-normal/${subPath}`:
@@ -9500,11 +9541,13 @@ async function resetSettings(request, env) {
 __name(resetSettings, "resetSettings");
 async function getSettings(request, env) {
   try {
-    const { proxySettings } = await getDataset(request, env);
     const pwd = await env.kv.get("pwd");
+    const auth = await Authenticate(request, env);
+    if (!auth) return await respond(false, 401, "Unauthorized or expired session.", { isPassSet: pwd });
+    const { proxySettings } = await getDataset(request, env);
     const settings = {
       proxySettings,
-      isPassSet: pwd,
+      isPassSet: pwd ? true : false,
       subPath: globalThis.subPath
     };
     return await respond(true, 200, null, settings);
@@ -9602,7 +9645,8 @@ async function renderPanel(request, env) {
     const auth = await Authenticate(request, env);
     if (!auth) return Response.redirect(`${globalThis.urlOrigin}/login`, 302);
   }
-  return new Response(__PANEL_HTML_CONTENT__, {
+  const html = __PANEL_HTML_CONTENT__.replace(/__PANEL_VERSION__/g, globalThis.panelVersion);
+  return new Response(html, {
     headers: { "Content-Type": "text/html" }
   });
 }
@@ -9610,19 +9654,22 @@ __name(renderPanel, "renderPanel");
 async function renderLogin(request, env) {
   const auth = await Authenticate(request, env);
   if (auth) return Response.redirect(`${globalThis.urlOrigin}/panel`, 302);
-  return new Response(__LOGIN_HTML_CONTENT__, {
+  const html = __LOGIN_HTML_CONTENT__.replace(/__PANEL_VERSION__/g, globalThis.panelVersion);
+  return new Response(html, {
     headers: { "Content-Type": "text/html" }
   });
 }
 __name(renderLogin, "renderLogin");
 async function renderSecrets() {
-  return new Response(__SECRETS_HTML_CONTENT__, {
+  const html = __SECRETS_HTML_CONTENT__.replace(/__PANEL_VERSION__/g, globalThis.panelVersion);
+  return new Response(html, {
     headers: { "Content-Type": "text/html" }
   });
 }
 __name(renderSecrets, "renderSecrets");
 async function renderError() {
-  return new Response(__ERROR_HTML_CONTENT__, {
+  const html = __ERROR_HTML_CONTENT__.replace(/__PANEL_VERSION__/g, globalThis.panelVersion);
+  return new Response(html, {
     status: 200,
     headers: { "Content-Type": "text/html" }
   });
@@ -9685,12 +9732,38 @@ async function respond(success, status, message2, body, customHeaders) {
 }
 __name(respond, "respond");
 
+// package.json
+var package_default = {
+  name: "bpb-panel",
+  version: "3.2.3",
+  homepage: "https://github.com/bia-pain-bache/BPB-Worker-Panel",
+  license: "GPL-3.0",
+  private: true,
+  type: "module",
+  scripts: {
+    build: "node scripts/build.js"
+  },
+  devDependencies: {
+    esbuild: "^0.25.2",
+    glob: "^10.3.10",
+    "html-minifier": "^4.0.0",
+    "javascript-obfuscator": "latest",
+    terser: "^5.39.0"
+  },
+  dependencies: {
+    "js-sha256": "^0.11.0",
+    jose: "^6.0.10",
+    jszip: "^3.10.1",
+    tweetnacl: "^1.0.3"
+  }
+};
+
 // src/helpers/init.js
 function initializeParams(request, env) {
   const proxyIPs = env.PROXY_IP?.split(",").map((proxyIP) => proxyIP.trim());
   const url = new URL(request.url);
   const searchParams = new URLSearchParams(url.search);
-  globalThis.panelVersion = __PANEL_VERSION__;
+  globalThis.panelVersion = package_default.version;
   globalThis.defaultHttpPorts = ["80", "8080", "2052", "2082", "2086", "2095", "8880"];
   globalThis.defaultHttpsPorts = ["443", "8443", "2053", "2083", "2087", "2096"];
   globalThis.userID = env.UUID;
@@ -10177,7 +10250,7 @@ async function parseTRHeader(buffer) {
     };
   }
   const password = new TextDecoder().decode(buffer.slice(0, crLfIndex));
-  if (password !== import_js_sha256.default.sha224(globalThis.TRPassword)) {
+  if (password !== (0, import_js_sha256.sha224)(globalThis.TRPassword)) {
     return {
       hasError: true,
       message: "invalid password"
