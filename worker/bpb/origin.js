@@ -6322,7 +6322,12 @@ function validateInput(label, input) {
   return input;
 }
 __name(validateInput, "validateInput");
-var normalizeTyp = /* @__PURE__ */ __name((value) => value.toLowerCase().replace(/^application\//, ""), "normalizeTyp");
+var normalizeTyp = /* @__PURE__ */ __name((value) => {
+  if (value.includes("/")) {
+    return value.toLowerCase();
+  }
+  return `application/${value.toLowerCase()}`;
+}, "normalizeTyp");
 var checkAudiencePresence = /* @__PURE__ */ __name((audPayload, audOption) => {
   if (typeof audPayload === "string") {
     return audOption.includes(audPayload);
