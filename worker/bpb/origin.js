@@ -4792,7 +4792,7 @@ var require_sha256 = __commonJS({
         WINDOW = false;
       }
       var WEB_WORKER = !WINDOW && typeof self === "object";
-      var NODE_JS = !root.JS_SHA256_NO_NODE_JS && typeof process === "object" && process.versions && process.versions.node;
+      var NODE_JS = !root.JS_SHA256_NO_NODE_JS && typeof process === "object" && process.versions && process.versions.node && process.type != "renderer";
       if (NODE_JS) {
         root = global;
       } else if (WEB_WORKER) {
@@ -10387,9 +10387,9 @@ js-sha256/src/sha256.js:
   (**
    * [js-sha256]{@link https://github.com/emn178/js-sha256}
    *
-   * @version 0.11.0
+   * @version 0.11.1
    * @author Chen, Yi-Cyuan [emn178@gmail.com]
-   * @copyright Chen, Yi-Cyuan 2014-2024
+   * @copyright Chen, Yi-Cyuan 2014-2025
    * @license MIT
    *)
 */
