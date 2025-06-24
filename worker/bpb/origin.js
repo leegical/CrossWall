@@ -8186,7 +8186,7 @@ function buildSingBoxRoutingRules(isWarp) {
   };
 }
 __name(buildSingBoxRoutingRules, "buildSingBoxRoutingRules");
-function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure) {
+function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure, isFragment) {
   const settings = globalThis.settings;
   const path = `/${getRandomPath(16)}${settings.proxyIPs.length ? `/${btoa(settings.proxyIPs.join(","))}` : ""}`;
   const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
@@ -8220,6 +8220,7 @@ function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure)
     enabled: true,
     insecure: allowInsecure,
     server_name: sni,
+    record_fragment: isFragment,
     utls: {
       enabled: true,
       fingerprint: "randomized"
@@ -8228,7 +8229,7 @@ function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure)
   return outbound;
 }
 __name(buildSingBoxVLOutbound, "buildSingBoxVLOutbound");
-function buildSingBoxTROutbound(remark, address, port, host, sni, allowInsecure) {
+function buildSingBoxTROutbound(remark, address, port, host, sni, allowInsecure, isFragment) {
   const settings = globalThis.settings;
   const path = `/tr${getRandomPath(16)}${settings.proxyIPs.length ? `/${btoa(settings.proxyIPs.join(","))}` : ""}`;
   const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
@@ -8261,6 +8262,7 @@ function buildSingBoxTROutbound(remark, address, port, host, sni, allowInsecure)
     enabled: true,
     insecure: allowInsecure,
     server_name: sni,
+    record_fragment: isFragment,
     utls: {
       enabled: true,
       fingerprint: "randomized"
@@ -8458,7 +8460,7 @@ async function getSingBoxWarpConfig(request, env) {
   });
 }
 __name(getSingBoxWarpConfig, "getSingBoxWarpConfig");
-async function getSingBoxCustomConfig(env) {
+async function getSingBoxCustomConfig(env, isFragment) {
   const settings = globalThis.settings;
   let chainProxy;
   if (settings.outProxy) {
@@ -8485,9 +8487,10 @@ async function getSingBoxCustomConfig(env) {
     proxies: [],
     chains: []
   };
+  const ports = isFragment ? settings.ports.filter((port) => globalThis.defaultHttpsPorts.includes(port)) : settings.ports;
   protocols.forEach((protocol) => {
     let protocolIndex = 1;
-    settings.ports.forEach((port) => {
+    ports.forEach((port) => {
       Addresses.forEach((addr) => {
         let VLOutbound, TROutbound;
         const isCustomAddr = settings.customCdnAddrs.includes(addr);
@@ -8502,7 +8505,8 @@ async function getSingBoxCustomConfig(env) {
             port,
             host,
             sni,
-            isCustomAddr
+            isCustomAddr,
+            isFragment
           );
           outbounds.proxies.push(VLOutbound);
         }
@@ -8513,7 +8517,8 @@ async function getSingBoxCustomConfig(env) {
             port,
             host,
             sni,
-            isCustomAddr
+            isCustomAddr,
+            isFragment
           );
           outbounds.proxies.push(TROutbound);
         }
@@ -9544,7 +9549,7 @@ function getRoutingRules3() {
     { rule: settings.blockPorn, type: "block", domain: "geosite:category-porn" },
     { rule: settings.bypassIran, type: "direct", domain: "geosite:category-ir", ip: "geoip:ir", dns: settings.localDNS },
     { rule: settings.bypassChina, type: "direct", domain: "geosite:cn", ip: "geoip:cn", dns: settings.localDNS },
-    { rule: settings.bypassRussia, type: "direct", domain: "geosite:ru", ip: "geoip:ru", dns: settings.localDNS },
+    { rule: settings.bypassRussia, type: "direct", domain: "geosite:category-ru", ip: "geoip:ru", dns: settings.localDNS },
     { rule: settings.bypassOpenAi, type: "direct", domain: "geosite:openai", dns: settings.antiSanctionDNS },
     { rule: settings.bypassMicrosoft, type: "direct", domain: "geosite:microsoft", dns: settings.antiSanctionDNS },
     { rule: settings.bypassOracle, type: "direct", domain: "geosite:oracle", dns: settings.antiSanctionDNS },
@@ -9612,7 +9617,7 @@ async function handleSubscriptions(request, env) {
     case `/sub/full-normal/${subPath}`:
       switch (client) {
         case "sfa":
-          return await getSingBoxCustomConfig(env);
+          return await getSingBoxCustomConfig(env, false);
         case "clash":
           return await getClashNormalConfig(env);
         case "xray":
@@ -9621,8 +9626,14 @@ async function handleSubscriptions(request, env) {
           break;
       }
     case `/sub/fragment/${subPath}`:
-      if (client === "hiddify-frag") return await getNormalConfigs(true);
-      return await getXrayCustomConfigs(env, true);
+      switch (client) {
+        case "sfa":
+          return await getSingBoxCustomConfig(env, true);
+        case "hiddify-frag":
+          return await getNormalConfigs(true);
+        default:
+          return await getXrayCustomConfigs(env, true);
+      }
     case `/sub/warp/${subPath}`:
       switch (client) {
         case "clash":
@@ -9840,7 +9851,7 @@ __name(respond, "respond");
 // package.json
 var package_default = {
   name: "bpb-panel",
-  version: "3.3.5",
+  version: "3.3.6",
   homepage: "https://github.com/bia-pain-bache/BPB-Worker-Panel",
   license: "GPL-3.0",
   private: true,
