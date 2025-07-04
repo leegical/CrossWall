@@ -9654,6 +9654,7 @@ async function handleSubscriptions(request, env) {
         case "hiddify-pro":
           return await getHiddifyWarpConfigs(true);
         case "xray-knocker":
+        case "xray-pro":
           return await getXrayWarpConfigs(request, env, true);
         default:
           break;
@@ -9851,7 +9852,7 @@ __name(respond, "respond");
 // package.json
 var package_default = {
   name: "bpb-panel",
-  version: "3.3.6",
+  version: "3.3.7",
   homepage: "https://github.com/bia-pain-bache/BPB-Worker-Panel",
   license: "GPL-3.0",
   private: true,
