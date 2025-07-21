@@ -8080,16 +8080,8 @@ function buildSingBoxRoutingRules(isWarp) {
   const settings = globalThis.settings;
   const rules = [
     {
-      action: "sniff"
-    },
-    {
-      action: "hijack-dns",
-      mode: "or",
-      rules: [
-        { port: 53 },
-        { protocol: "dns" }
-      ],
-      type: "logical"
+      ip_cidr: "172.18.0.2",
+      action: "hijack-dns"
     },
     {
       clash_mode: "Direct",
@@ -8098,6 +8090,13 @@ function buildSingBoxRoutingRules(isWarp) {
     {
       clash_mode: "Global",
       outbound: "\u2705 Selector"
+    },
+    {
+      action: "sniff"
+    },
+    {
+      protocol: "dns",
+      action: "hijack-dns"
     }
   ];
   if (settings.bypassLAN) rules.push({
@@ -8860,14 +8859,6 @@ function buildXrayRoutingRules(isChain, isBalancer, isWorkerLess, isWarp) {
       ],
       outboundTag: "dns-out",
       type: "field"
-    },
-    {
-      inboundTag: [
-        "socks-in"
-      ],
-      port: 53,
-      outboundTag: "dns-out",
-      type: "field"
     }
   ];
   function addRoutingRule(inboundTag, domain, ip, port, network2, outboundTag, isBalancer2) {
@@ -9610,8 +9601,8 @@ __name(handleLogin, "handleLogin");
 async function handleSubscriptions(request, env) {
   const { proxySettings: settings } = await getDataset(request, env);
   globalThis.settings = settings;
-  const { pathName: pathName2, client, subPath } = globalThis;
-  switch (decodeURIComponent(pathName2)) {
+  const { pathName, client, subPath } = globalThis;
+  switch (decodeURIComponent(pathName)) {
     case `/sub/normal/${subPath}`:
       return await getNormalConfigs(false);
     case `/sub/full-normal/${subPath}`:
@@ -9852,7 +9843,7 @@ __name(respond, "respond");
 // package.json
 var package_default = {
   name: "bpb-panel",
-  version: "3.3.7",
+  version: "3.3.8",
   homepage: "https://github.com/bia-pain-bache/BPB-Worker-Panel",
   license: "GPL-3.0",
   private: true,
@@ -10008,7 +9999,7 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
   __name(connectAndWrite, "connectAndWrite");
   async function retry() {
     let proxyIP, proxyIpPort;
-    const EncodedPanelProxyIPs = pathName.split("/")[2] || "";
+    const EncodedPanelProxyIPs = globalThis.pathName.split("/")[2] || "";
     const proxyIPs = atob(EncodedPanelProxyIPs) || globalThis.proxyIPs;
     const finalProxyIPs = proxyIPs.split(",").map((ip) => ip.trim());
     proxyIP = finalProxyIPs[Math.floor(Math.random() * finalProxyIPs.length)];
@@ -10016,8 +10007,7 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
       const match = proxyIP.match(/^(\[.*?\]):(\d+)$/);
       proxyIP = match[1];
       proxyIpPort = +match[2];
-    }
-    if (proxyIP.split(":").length === 2) {
+    } else {
       proxyIP = proxyIP.split(":")[0];
       proxyIpPort = +proxyIP.split(":")[1];
     }
@@ -10474,8 +10464,7 @@ async function handleTCPOutBound2(remoteSocket, addressRemote, portRemote, rawCl
       const match = proxyIP.match(/^(\[.*?\]):(\d+)$/);
       proxyIP = match[1];
       proxyIpPort = +match[2];
-    }
-    if (proxyIP.split(":").length === 2) {
+    } else {
       proxyIP = proxyIP.split(":")[0];
       proxyIpPort = +proxyIP.split(":")[1];
     }
