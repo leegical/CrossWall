@@ -7029,7 +7029,7 @@ function extractChainProxyParams(chainProxy) {
   if (!chainProxy) return {};
   const url = new URL(chainProxy);
   const protocol = url.protocol.slice(0, -1);
-  if (protocol === "vless") {
+  if (protocol === atob("dmxlc3M=")) {
     const params = new URLSearchParams(url.search);
     configParams = {
       protocol,
@@ -7205,7 +7205,7 @@ function buildClashVLOutbound(remark, address, port, host, sni, proxyIPs, allowI
   const ipVersion = settings.VLTRenableIPv6 ? "dual" : "ipv4";
   const outbound = {
     "name": remark,
-    "type": "vless",
+    "type": atob("dmxlc3M="),
     "server": addr,
     "port": port,
     "uuid": globalThis.userID,
@@ -7240,7 +7240,7 @@ function buildClashTROutbound(remark, address, port, host, sni, proxyIPs, allowI
   const ipVersion = settings.VLTRenableIPv6 ? "dual" : "ipv4";
   return {
     "name": remark,
-    "type": "trojan",
+    "type": atob("dHJvamFu"),
     "server": addr,
     "port": port,
     "password": globalThis.TRPassword,
@@ -7316,7 +7316,7 @@ function buildClashChainOutbound(chainProxyParams) {
   const { server, port, uuid, flow, security, type, sni, fp, alpn, pbk, sid, headerType, host, path, serviceName } = chainProxyParams;
   const chainOutbound = {
     "name": "\u{1F4A6} Chain Best Ping \u{1F4A5}",
-    "type": "vless",
+    "type": atob("dmxlc3M="),
     "server": server,
     "port": +port,
     "udp": true,
@@ -7457,8 +7457,8 @@ async function getClashNormalConfig(env) {
   }
   let proxyIndex = 1;
   const protocols = [];
-  if (settings.VLConfigs) protocols.push("VLESS");
-  if (settings.TRConfigs) protocols.push("Trojan");
+  if (settings.VLConfigs) protocols.push(atob("VkxFU1M="));
+  if (settings.TRConfigs) protocols.push(atob("VHJvamFu"));
   const Addresses = await getConfigAddresses(false);
   const tags = [];
   const outbounds = {
@@ -7475,7 +7475,7 @@ async function getClashNormalConfig(env) {
         const sni = isCustomAddr ? settings.customCdnSni : randomUpperCase(hostName);
         const host = isCustomAddr ? settings.customCdnHost : hostName;
         const tag2 = generateRemark(protocolIndex, port, addr, settings.cleanIPs, protocol, configType).replace(" : ", " - ");
-        if (protocol === "VLESS") {
+        if (protocol === atob("VkxFU1M=")) {
           VLOutbound = buildClashVLOutbound(
             chainProxy ? `proxy-${proxyIndex}` : tag2,
             addr,
@@ -7488,7 +7488,7 @@ async function getClashNormalConfig(env) {
           outbounds.proxies.push(VLOutbound);
           tags.push(tag2);
         }
-        if (protocol === "Trojan" && globalThis.defaultHttpsPorts.includes(port)) {
+        if (protocol === atob("VHJvamFu") && globalThis.defaultHttpsPorts.includes(port)) {
           TROutbound = buildClashTROutbound(
             chainProxy ? `proxy-${proxyIndex}` : tag2,
             addr,
@@ -7823,7 +7823,7 @@ async function getNormalConfigs(isFragment) {
     const path = `${getRandomPath(16)}${settings.proxyIPs.length ? `/${btoa(settings.proxyIPs.join(","))}` : ""}`;
     const config = new URL(`${protocol}://config`);
     let pathPrefix = "";
-    if (protocol === "vless") {
+    if (protocol === atob("dmxlc3M=")) {
       config.username = globalThis.userID;
       config.searchParams.append("encryption", "none");
     } else {
@@ -7859,16 +7859,16 @@ async function getNormalConfigs(isFragment) {
       const configType = isCustomAddr ? "C" : isFragment ? "F" : "";
       const sni = isCustomAddr ? settings.customCdnSni : randomUpperCase(globalThis.hostName);
       const host = isCustomAddr ? settings.customCdnHost : globalThis.hostName;
-      const VLRemark = generateRemark(proxyIndex, port, addr, settings.cleanIPs, "VLESS", configType);
-      const TRRemark = generateRemark(proxyIndex, port, addr, settings.cleanIPs, "Trojan", configType);
+      const VLRemark = generateRemark(proxyIndex, port, addr, settings.cleanIPs, atob("VkxFU1M="), configType);
+      const TRRemark = generateRemark(proxyIndex, port, addr, settings.cleanIPs, atob("VHJvamFu"), configType);
       if (settings.VLConfigs) {
-        const vlessConfig = buildConfig("vless", addr, port, host, sni, VLRemark);
-        VLConfs += `${vlessConfig}
+        const vlConfig = buildConfig(atob("dmxlc3M="), addr, port, host, sni, VLRemark);
+        VLConfs += `${vlConfig}
 `;
       }
       if (settings.TRConfigs) {
-        const trojanConfig = buildConfig("trojan", addr, port, host, sni, TRRemark);
-        TRConfs += `${trojanConfig}
+        const trConfig = buildConfig(atob("dHJvamFu"), addr, port, host, sni, TRRemark);
+        TRConfs += `${trConfig}
 `;
       }
       proxyIndex++;
@@ -7886,7 +7886,7 @@ async function getNormalConfigs(isFragment) {
     }
   }
   const configs = btoa(VLConfs + TRConfs + chainProxy);
-  const hiddifyHash = base64EncodeUnicode(isFragment ? "\u{1F4A6} BPB Fragment" : "\u{1F4A6} BPB Normal");
+  const hiddifyHash = base64EncodeUnicode(isFragment ? `\u{1F4A6} ${atob("QlBC")} Fragment` : `\u{1F4A6} ${atob("QlBC")} Normal`);
   return new Response(configs, {
     status: 200,
     headers: {
@@ -7918,7 +7918,7 @@ async function getHiddifyWarpConfigs(isPro) {
     configs += `${config.href}&&detour=${detour.href}
 `;
   });
-  const hiddifyHash = base64EncodeUnicode(`\u{1F4A6} BPB Warp${isPro ? " Pro" : ""}`);
+  const hiddifyHash = base64EncodeUnicode(`\u{1F4A6} ${atob("QlBC")} Warp${isPro ? " Pro" : ""}`);
   return new Response(btoa(configs), {
     status: 200,
     headers: {
@@ -8191,7 +8191,7 @@ function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure,
   const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
   const outbound = {
     tag: remark,
-    type: "vless",
+    type: atob("dmxlc3M="),
     server: address,
     server_port: port,
     uuid: globalThis.userID,
@@ -8234,7 +8234,7 @@ function buildSingBoxTROutbound(remark, address, port, host, sni, allowInsecure,
   const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
   const outbound = {
     tag: remark,
-    type: "trojan",
+    type: atob("dHJvamFu"),
     password: globalThis.TRPassword,
     server: address,
     server_port: port,
@@ -8339,7 +8339,7 @@ function buildSingBoxChainOutbound(chainProxyParams) {
   }
   const { server, port, uuid, flow, security, type, sni, fp, alpn, pbk, sid, headerType, host, path, serviceName } = chainProxyParams;
   const chainOutbound = {
-    type: "vless",
+    type: atob("dmxlc3M="),
     tag: "",
     server,
     server_port: +port,
@@ -8478,8 +8478,8 @@ async function getSingBoxCustomConfig(env, isFragment) {
   }
   let proxyIndex = 1;
   const protocols = [];
-  if (settings.VLConfigs) protocols.push("VLESS");
-  if (settings.TRConfigs) protocols.push("Trojan");
+  if (settings.VLConfigs) protocols.push(atob("VkxFU1M="));
+  if (settings.TRConfigs) protocols.push(atob("VHJvamFu"));
   const tags = [];
   const Addresses = await getConfigAddresses(false);
   const outbounds = {
@@ -8497,7 +8497,7 @@ async function getSingBoxCustomConfig(env, isFragment) {
         const sni = isCustomAddr ? settings.customCdnSni : randomUpperCase(globalThis.hostName);
         const host = isCustomAddr ? settings.customCdnHost : globalThis.hostName;
         const tag2 = generateRemark(protocolIndex, port, addr, settings.cleanIPs, protocol, configType);
-        if (protocol === "VLESS") {
+        if (protocol === atob("VkxFU1M=")) {
           VLOutbound = buildSingBoxVLOutbound(
             chainProxy ? `proxy-${proxyIndex}` : tag2,
             addr,
@@ -8509,7 +8509,7 @@ async function getSingBoxCustomConfig(env, isFragment) {
           );
           outbounds.proxies.push(VLOutbound);
         }
-        if (protocol === "Trojan") {
+        if (protocol === atob("VHJvamFu")) {
           TROutbound = buildSingBoxTROutbound(
             chainProxy ? `proxy-${proxyIndex}` : tag2,
             addr,
@@ -8929,7 +8929,7 @@ function buildXrayVLOutbound(tag2, address, port, host, sni, proxyIPs, isFragmen
   const proxyIpPath = proxyIPs.length ? `/${btoa(proxyIPs.join(","))}` : "";
   const path = `/${getRandomPath(16)}${proxyIpPath}?ed=2560`;
   const outbound = {
-    protocol: "vless",
+    protocol: atob("dmxlc3M="),
     settings: {
       vnext: [
         {
@@ -8979,7 +8979,7 @@ function buildXrayTROutbound(tag2, address, port, host, sni, proxyIPs, isFragmen
   const proxyIpPath = proxyIPs.length ? `/${btoa(proxyIPs.join(","))}` : "";
   const path = `/tr${getRandomPath(16)}${proxyIpPath}?ed=2560`;
   const outbound = {
-    protocol: "trojan",
+    protocol: atob("dHJvamFu"),
     settings: {
       servers: [
         {
@@ -9130,7 +9130,7 @@ function buildXrayChainOutbound(chainProxyParams, VLTRenableIPv6) {
       xudpConcurrency: 16,
       xudpProxyUDP443: "reject"
     },
-    protocol: "vless",
+    protocol: atob("dmxlc3M="),
     settings: {
       vnext: [
         {
@@ -9286,7 +9286,7 @@ async function buildXrayConfig(remark, isBalancer, isChain, balancerFallback, is
 }
 __name(buildXrayConfig, "buildXrayConfig");
 async function buildXrayBestPingConfig(totalAddresses, chainProxy, outbounds, isFragment) {
-  const remark = isFragment ? `\u{1F4A6} BPB F - Best Ping \u{1F4A5}` : `\u{1F4A6} BPB - Best Ping \u{1F4A5}`;
+  const remark = isFragment ? `\u{1F4A6} ${atob("QlBC")} F - Best Ping \u{1F4A5}` : `\u{1F4A6} ${atob("QlBC")} - Best Ping \u{1F4A5}`;
   const config = await buildXrayConfig(remark, true, chainProxy, true, false, isFragment, false, totalAddresses, null);
   config.outbounds.unshift(...outbounds);
   return config;
@@ -9314,7 +9314,7 @@ async function buildXrayBestFragmentConfig(hostName, chainProxy, outbound) {
     "80-100",
     "100-200"
   ];
-  const config = await buildXrayConfig(`\u{1F4A6} BPB F - Best Fragment \u{1F60E}`, true, chainProxy, false, false, true, false, [], hostName);
+  const config = await buildXrayConfig(`\u{1F4A6} ${atob("QlBC")} F - Best Fragment \u{1F60E}`, true, chainProxy, false, false, true, false, [], hostName);
   const bestFragOutbounds = [];
   bestFragValues.forEach((fragLength, index) => {
     if (chainProxy) {
@@ -9335,8 +9335,8 @@ async function buildXrayBestFragmentConfig(hostName, chainProxy, outbound) {
 }
 __name(buildXrayBestFragmentConfig, "buildXrayBestFragmentConfig");
 async function buildXrayWorkerLessConfig() {
-  const cfDnsConfig = await buildXrayConfig(`\u{1F4A6} BPB F - WorkerLess - 1 \u2B50`, false, false, false, false, true, true, [], false, "cloudflare-dns.com", ["cloudflare.com"]);
-  const googleDnsConfig = await buildXrayConfig(`\u{1F4A6} BPB F - WorkerLess - 2 \u2B50`, false, false, false, false, true, true, [], false, "dns.google", ["8.8.8.8", "8.8.4.4"]);
+  const cfDnsConfig = await buildXrayConfig(`\u{1F4A6} ${atob("QlBC")} F - WorkerLess - 1 \u2B50`, false, false, false, false, true, true, [], false, "cloudflare-dns.com", ["cloudflare.com"]);
+  const googleDnsConfig = await buildXrayConfig(`\u{1F4A6} ${atob("QlBC")} F - WorkerLess - 2 \u2B50`, false, false, false, false, true, true, [], false, "dns.google", ["8.8.8.8", "8.8.4.4"]);
   return [cfDnsConfig, googleDnsConfig];
 }
 __name(buildXrayWorkerLessConfig, "buildXrayWorkerLessConfig");
@@ -9360,8 +9360,8 @@ async function getXrayCustomConfigs(env, isFragment) {
   const Addresses = await getConfigAddresses(settings.cleanIPs, settings.VLTRenableIPv6, settings.customCdnAddrs, isFragment);
   const totalPorts = settings.ports.filter((port) => isFragment ? globalThis.defaultHttpsPorts.includes(port) : true);
   let protocols = [];
-  if (settings.VLConfigs) protocols.push("VLESS");
-  if (settings.TRConfigs) protocols.push("Trojan");
+  if (settings.VLConfigs) protocols.push(atob("VkxFU1M="));
+  if (settings.TRConfigs) protocols.push(atob("VHJvamFu"));
   let configs = [];
   let outbounds = {
     proxies: [],
@@ -9377,7 +9377,7 @@ async function getXrayCustomConfigs(env, isFragment) {
         const host = isCustomAddr ? settings.customCdnHost : globalThis.hostName;
         const remark = generateRemark(protocolIndex, port, addr, settings.cleanIPs, protocol, configType);
         const customConfig = await buildXrayConfig(remark, false, chainProxy, false, false, isFragment, false, [addr], null);
-        const outbound = protocol === "VLESS" ? buildXrayVLOutbound("proxy", addr, port, host, sni, settings.proxyIPs, isFragment, isCustomAddr) : buildXrayTROutbound("proxy", addr, port, host, sni, settings.proxyIPs, isFragment, isCustomAddr);
+        const outbound = protocol === atob("VkxFU1M=") ? buildXrayVLOutbound("proxy", addr, port, host, sni, settings.proxyIPs, isFragment, isCustomAddr) : buildXrayTROutbound("proxy", addr, port, host, sni, settings.proxyIPs, isFragment, isCustomAddr);
         customConfig.outbounds.unshift({ ...outbound });
         outbounds.proxies.push(outbound);
         if (chainProxy) {
@@ -9738,7 +9738,7 @@ async function getWarpConfigs(request, env) {
         H4 = 0` : "";
   try {
     warpEndpoints.forEach((endpoint, index) => {
-      zip.file(`BPB-Warp-${index + 1}.conf`, trimLines(
+      zip.file(`${atob("QlBC")}-Warp-${index + 1}.conf`, trimLines(
         `[Interface]
                 PrivateKey = ${privateKey}
                 Address = 172.16.0.2/32, ${warpIPv6}
@@ -9757,7 +9757,7 @@ async function getWarpConfigs(request, env) {
     return new Response(arrayBuffer, {
       headers: {
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="BPB-Warp-${isPro ? "Pro-" : ""}configs.zip"`
+        "Content-Disposition": `attachment; filename="${atob("QlBC")}-Warp-${isPro ? "Pro-" : ""}configs.zip"`
       }
     });
   } catch (error) {
@@ -9781,7 +9781,8 @@ async function renderPanel(request, env) {
     const auth = await Authenticate(request, env);
     if (!auth) return Response.redirect(`${globalThis.urlOrigin}/login`, 302);
   }
-  const html = __PANEL_HTML_CONTENT__.replace(/__PANEL_VERSION__/g, globalThis.panelVersion);
+  const encodedHtml = __PANEL_HTML_CONTENT__;
+  const html = new TextDecoder("utf-8").decode(Uint8Array.from(atob(encodedHtml), (c) => c.charCodeAt(0)));
   return new Response(html, {
     headers: { "Content-Type": "text/html" }
   });
@@ -9790,21 +9791,24 @@ __name(renderPanel, "renderPanel");
 async function renderLogin(request, env) {
   const auth = await Authenticate(request, env);
   if (auth) return Response.redirect(`${urlOrigin}/panel`, 302);
-  const html = __LOGIN_HTML_CONTENT__.replace(/__PANEL_VERSION__/g, globalThis.panelVersion);
+  const encodedHtml = __LOGIN_HTML_CONTENT__;
+  const html = new TextDecoder("utf-8").decode(Uint8Array.from(atob(encodedHtml), (c) => c.charCodeAt(0)));
   return new Response(html, {
     headers: { "Content-Type": "text/html" }
   });
 }
 __name(renderLogin, "renderLogin");
 async function renderSecrets() {
-  const html = __SECRETS_HTML_CONTENT__.replace(/__PANEL_VERSION__/g, globalThis.panelVersion);
+  const encodedHtml = __SECRETS_HTML_CONTENT__;
+  const html = new TextDecoder("utf-8").decode(Uint8Array.from(atob(encodedHtml), (c) => c.charCodeAt(0)));
   return new Response(html, {
     headers: { "Content-Type": "text/html" }
   });
 }
 __name(renderSecrets, "renderSecrets");
 async function renderError() {
-  const html = __ERROR_HTML_CONTENT__.replace(/__PANEL_VERSION__/g, globalThis.panelVersion);
+  const encodedHtml = __ERROR_HTML_CONTENT__;
+  const html = new TextDecoder("utf-8").decode(Uint8Array.from(atob(encodedHtml), (c) => c.charCodeAt(0)));
   return new Response(html, {
     status: 200,
     headers: { "Content-Type": "text/html" }
@@ -9840,47 +9844,16 @@ async function respond(success, status, message2, body, customHeaders) {
 }
 __name(respond, "respond");
 
-// package.json
-var package_default = {
-  name: "bpb-panel",
-  version: "3.3.9",
-  homepage: "https://github.com/bia-pain-bache/BPB-Worker-Panel",
-  license: "GPL-3.0",
-  private: true,
-  type: "module",
-  scripts: {
-    build: "node scripts/build.js"
-  },
-  devDependencies: {
-    "@eslint/css": "^0.8.1",
-    "@eslint/js": "^9.28.0",
-    "@eslint/markdown": "^6.5.0",
-    eslint: "^9.28.0"
-  },
-  dependencies: {
-    esbuild: "^0.25.5",
-    glob: "^11.0.2",
-    globals: "^16.2.0",
-    "html-minifier": "^4.0.0",
-    "javascript-obfuscator": "latest",
-    jose: "^6.0.11",
-    "js-sha256": "^0.11.1",
-    jszip: "^3.10.1",
-    terser: "^5.42.0",
-    tweetnacl: "^1.0.3"
-  }
-};
-
 // src/helpers/init.js
 function initializeParams(request, env) {
   const url = new URL(request.url);
   const searchParams = new URLSearchParams(url.search);
-  globalThis.panelVersion = package_default.version;
+  globalThis.panelVersion = __PANEL_VERSION__;
   globalThis.defaultHttpPorts = [80, 8080, 2052, 2082, 2086, 2095, 8880];
   globalThis.defaultHttpsPorts = [443, 8443, 2053, 2083, 2087, 2096];
   globalThis.userID = env.UUID;
   globalThis.TRPassword = env.TR_PASS;
-  globalThis.proxyIPs = env.PROXY_IP || "bpb.yousef.isegaro.com";
+  globalThis.proxyIPs = env.PROXY_IP || `${atob("YnBi")}.yousef.isegaro.com`;
   globalThis.hostName = request.headers.get("Host");
   globalThis.pathName = url.pathname;
   globalThis.client = searchParams.get("app");
@@ -9889,7 +9862,7 @@ function initializeParams(request, env) {
   globalThis.fallbackDomain = env.FALLBACK || "speed.cloudflare.com";
   globalThis.subPath = env.SUB_PATH || globalThis.userID;
   if (!["/error", "/secrets", "/favicon.ico"].includes(globalThis.pathName)) {
-    if (!globalThis.userID || !globalThis.TRPassword) throw new Error(`Please set UUID and Trojan password first. Please visit <a href="${globalThis.urlOrigin}/secrets" target="_blank">here</a> to generate them.`, { cause: "init" });
+    if (!globalThis.userID || !globalThis.TRPassword) throw new Error(`Please set UUID and ${atob("VHJvamFu")} password first. Please visit <a href="${globalThis.urlOrigin}/secrets" target="_blank">here</a> to generate them.`, { cause: "init" });
     if (globalThis.userID && !isValidUUID(globalThis.userID)) throw new Error(`Invalid UUID: ${globalThis.userID}`, { cause: "init" });
     if (typeof env.kv !== "object") throw new Error("KV Dataset is not properly set! Please refer to tutorials.", { cause: "init" });
   }
@@ -10550,7 +10523,7 @@ async function TRRemoteSocketToWS(remoteSocket, webSocket, retry, log) {
       }
     })
   ).catch((error) => {
-    console.error(`trojanRemoteSocketToWS error:`, error.stack || error);
+    console.error(`TRRemoteSocketToWS error:`, error.stack || error);
     safeCloseWebSocket2(webSocket);
   });
   if (hasIncomingData === false && retry) {
