@@ -9972,19 +9972,18 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
   __name(connectAndWrite, "connectAndWrite");
   async function retry() {
     let proxyIP, proxyIpPort;
-    const EncodedPanelProxyIPs = globalThis.pathName.split("/")[2] || "";
-    const proxyIPs = atob(EncodedPanelProxyIPs) || globalThis.proxyIPs;
-    const finalProxyIPs = proxyIPs.split(",").map((ip) => ip.trim());
-    proxyIP = finalProxyIPs[Math.floor(Math.random() * finalProxyIPs.length)];
-    if (proxyIP.includes("]:")) {
-      const match = proxyIP.match(/^(\[.*?\]):(\d+)$/);
+    const encodedPanelProxyIPs = globalThis.pathName.split("/")[2] || "";
+    const decodedProxyIPs = encodedPanelProxyIPs ? atob(encodedPanelProxyIPs) : globalThis.proxyIPs;
+    const proxyIpList = decodedProxyIPs.split(",").map((ip) => ip.trim());
+    const selectedProxyIP = proxyIpList[Math.floor(Math.random() * proxyIpList.length)];
+    if (selectedProxyIP.includes("]:")) {
+      const match = selectedProxyIP.match(/^(\[.*?\]):(\d+)$/);
       proxyIP = match[1];
-      proxyIpPort = +match[2];
+      proxyIpPort = match[2];
     } else {
-      proxyIP = proxyIP.split(":")[0];
-      proxyIpPort = +proxyIP.split(":")[1];
+      [proxyIP, proxyIpPort] = selectedProxyIP.split(":");
     }
-    const tcpSocket2 = await connectAndWrite(proxyIP || addressRemote, proxyIpPort || portRemote);
+    const tcpSocket2 = await connectAndWrite(proxyIP || addressRemote, +proxyIpPort || portRemote);
     tcpSocket2.closed.catch((error) => {
       console.log("retry tcpSocket closed error", error);
     }).finally(() => {
@@ -10429,17 +10428,16 @@ async function handleTCPOutBound2(remoteSocket, addressRemote, portRemote, rawCl
   __name(connectAndWrite, "connectAndWrite");
   async function retry() {
     let proxyIP, proxyIpPort;
-    const EncodedPanelProxyIPs = globalThis.pathName.split("/")[2] || "";
-    const proxyIPs = atob(EncodedPanelProxyIPs) || globalThis.proxyIPs;
-    const finalProxyIPs = proxyIPs.split(",").map((ip) => ip.trim());
-    proxyIP = finalProxyIPs[Math.floor(Math.random() * finalProxyIPs.length)];
-    if (proxyIP.includes("]:")) {
-      const match = proxyIP.match(/^(\[.*?\]):(\d+)$/);
+    const encodedPanelProxyIPs = globalThis.pathName.split("/")[2] || "";
+    const decodedProxyIPs = encodedPanelProxyIPs ? atob(encodedPanelProxyIPs) : globalThis.proxyIPs;
+    const proxyIpList = decodedProxyIPs.split(",").map((ip) => ip.trim());
+    const selectedProxyIP = proxyIpList[Math.floor(Math.random() * proxyIpList.length)];
+    if (selectedProxyIP.includes("]:")) {
+      const match = selectedProxyIP.match(/^(\[.*?\]):(\d+)$/);
       proxyIP = match[1];
-      proxyIpPort = +match[2];
+      proxyIpPort = match[2];
     } else {
-      proxyIP = proxyIP.split(":")[0];
-      proxyIpPort = +proxyIP.split(":")[1];
+      [proxyIP, proxyIpPort] = selectedProxyIP.split(":");
     }
     const tcpSocket2 = await connectAndWrite(proxyIP || addressRemote, proxyIpPort || portRemote);
     tcpSocket2.closed.catch((error) => {
