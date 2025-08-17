@@ -42,9 +42,9 @@ var require_nacl_fast = __commonJS({
   "node_modules/tweetnacl/nacl-fast.js"(exports, module) {
     (function(nacl) {
       "use strict";
-      var gf = /* @__PURE__ */ __name(function(init) {
+      var gf = /* @__PURE__ */ __name(function(init2) {
         var i, r = new Float64Array(16);
-        if (init) for (i = 0; i < init.length; i++) r[i] = init[i];
+        if (init2) for (i = 0; i < init2.length; i++) r[i] = init2[i];
         return r;
       }, "gf");
       var randombytes = /* @__PURE__ */ __name(function() {
@@ -6963,6 +6963,7 @@ async function updateDataset(request, env) {
     VLConfigs: populateField("VLConfigs", true),
     TRConfigs: populateField("TRConfigs", true),
     ports: populateField("ports", [443]),
+    fingerprint: populateField("fingerprint", "randomized"),
     fragmentLengthMin: populateField("fragmentLengthMin", 100),
     fragmentLengthMax: populateField("fragmentLengthMax", 200),
     fragmentIntervalMin: populateField("fragmentIntervalMin", 1),
@@ -7203,6 +7204,7 @@ function buildClashVLOutbound(remark, address, port, host, sni, proxyIPs, allowI
   const addr = isIPv6(address) ? address.replace(/\[|\]/g, "") : address;
   const path = `/${getRandomPath(16)}${proxyIPs.length ? `/${btoa(proxyIPs.join(","))}` : ""}`;
   const ipVersion = settings.VLTRenableIPv6 ? "dual" : "ipv4";
+  const fingerprint = settings.fingerprint === "randomized" ? "random" : settings.fingerprint;
   const outbound = {
     "name": remark,
     "type": atob("dmxlc3M="),
@@ -7226,7 +7228,7 @@ function buildClashVLOutbound(remark, address, port, host, sni, proxyIPs, allowI
     Object.assign(outbound, {
       "servername": sni,
       "alpn": ["http/1.1"],
-      "client-fingerprint": "random",
+      "client-fingerprint": fingerprint,
       "skip-cert-verify": allowInsecure
     });
   }
@@ -7238,6 +7240,7 @@ function buildClashTROutbound(remark, address, port, host, sni, proxyIPs, allowI
   const addr = isIPv6(address) ? address.replace(/\[|\]/g, "") : address;
   const path = `/tr${getRandomPath(16)}${proxyIPs.length ? `/${btoa(proxyIPs.join(","))}` : ""}`;
   const ipVersion = settings.VLTRenableIPv6 ? "dual" : "ipv4";
+  const fingerprint = settings.fingerprint === "randomized" ? "random" : settings.fingerprint;
   return {
     "name": remark,
     "type": atob("dHJvamFu"),
@@ -7257,7 +7260,7 @@ function buildClashTROutbound(remark, address, port, host, sni, proxyIPs, allowI
     },
     "sni": sni,
     "alpn": ["http/1.1"],
-    "client-fingerprint": "random",
+    "client-fingerprint": fingerprint,
     "skip-cert-verify": allowInsecure
   };
 }
@@ -7299,10 +7302,12 @@ function buildClashWarpOutbound(warpConfigs, remark, endpoint, chain, isPro) {
   return outbound;
 }
 __name(buildClashWarpOutbound, "buildClashWarpOutbound");
-function buildClashChainOutbound(chainProxyParams) {
-  if (["socks", "http"].includes(chainProxyParams.protocol)) {
-    const { protocol, server: server2, port: port2, user, pass } = chainProxyParams;
-    const proxyType = protocol === "socks" ? "socks5" : protocol;
+function buildClashChainOutbound() {
+  const { outProxyParams } = globalThis.settings;
+  const { protocol } = outProxyParams;
+  if (["socks", "http"].includes(protocol)) {
+    const { protocol: protocol2, server: server2, port: port2, user, pass } = outProxyParams;
+    const proxyType = protocol2 === "socks" ? "socks5" : protocol2;
     return {
       "name": "",
       "type": proxyType,
@@ -7313,7 +7318,7 @@ function buildClashChainOutbound(chainProxyParams) {
       "password": pass
     };
   }
-  const { server, port, uuid, flow, security, type, sni, fp, alpn, pbk, sid, headerType, host, path, serviceName } = chainProxyParams;
+  const { server, port, uuid, flow, security, type, sni, fp, alpn, pbk, sid, headerType, host, path, serviceName } = outProxyParams;
   const chainOutbound = {
     "name": "\u{1F4A6} Chain Best Ping \u{1F4A5}",
     "type": atob("dmxlc3M="),
@@ -7443,7 +7448,7 @@ async function getClashNormalConfig(env) {
   let chainProxy;
   if (settings.outProxy) {
     try {
-      chainProxy = buildClashChainOutbound(settings.outProxyParams);
+      chainProxy = buildClashChainOutbound();
     } catch (error) {
       console.log("An error occured while parsing chain proxy: ", error);
       chainProxy = void 0;
@@ -7980,6 +7985,15 @@ async function buildSingBoxDNS(isWarp) {
       server: "dns-remote"
     }
   ];
+  if (settings.outProxy) {
+    const { server } = settings.outProxyParams;
+    if (isDomain(server)) {
+      rules.unshift({
+        domain: server,
+        server: "dns-remote"
+      });
+    }
+  }
   if (settings.dohHost.isDomain && !isWarp) {
     const { ipv4, ipv6, host } = settings.dohHost;
     const answers = [
@@ -8180,6 +8194,11 @@ function buildSingBoxRoutingRules(isWarp) {
     rules,
     rule_set: ruleSets,
     auto_detect_interface: true,
+    default_domain_resolver: {
+      server: "dns-direct",
+      strategy: settings.VLTRenableIPv6 ? "prefer_ipv4" : "ipv4_only",
+      rewrite_ttl: 60
+    },
     // override_android_vpn: true,
     final: "\u2705 Selector"
   };
@@ -8206,11 +8225,6 @@ function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure,
       path,
       type: "ws"
     },
-    domain_resolver: {
-      server: "dns-direct",
-      strategy: settings.VLTRenableIPv6 ? "prefer_ipv4" : "ipv4_only",
-      rewrite_ttl: 60
-    },
     tcp_fast_open: true,
     tcp_multi_path: true
   };
@@ -8222,7 +8236,7 @@ function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure,
     record_fragment: isFragment,
     utls: {
       enabled: true,
-      fingerprint: "randomized"
+      fingerprint: settings.fingerprint
     }
   };
   return outbound;
@@ -8248,11 +8262,6 @@ function buildSingBoxTROutbound(remark, address, port, host, sni, allowInsecure,
       path,
       type: "ws"
     },
-    domain_resolver: {
-      server: "dns-direct",
-      strategy: settings.VLTRenableIPv6 ? "prefer_ipv4" : "ipv4_only",
-      rewrite_ttl: 60
-    },
     tcp_fast_open: true,
     tcp_multi_path: true
   };
@@ -8264,7 +8273,7 @@ function buildSingBoxTROutbound(remark, address, port, host, sni, allowInsecure,
     record_fragment: isFragment,
     utls: {
       enabled: true,
-      fingerprint: "randomized"
+      fingerprint: settings.fingerprint
     }
   };
   return outbound;
@@ -8316,10 +8325,11 @@ function buildSingBoxWarpOutbound(warpConfigs, remark, endpoint, chain) {
   return outbound;
 }
 __name(buildSingBoxWarpOutbound, "buildSingBoxWarpOutbound");
-function buildSingBoxChainOutbound(chainProxyParams) {
-  const settings = globalThis.settings;
-  if (["socks", "http"].includes(chainProxyParams.protocol)) {
-    const { protocol, server: server2, port: port2, user, pass } = chainProxyParams;
+function buildSingBoxChainOutbound() {
+  const { outProxyParams } = globalThis.settings;
+  const { protocol } = outProxyParams;
+  if (["socks", "http"].includes(protocol)) {
+    const { server: server2, port: port2, user, pass } = outProxyParams;
     const chainOutbound2 = {
       type: protocol,
       tag: "",
@@ -8327,17 +8337,12 @@ function buildSingBoxChainOutbound(chainProxyParams) {
       server_port: +port2,
       username: user,
       password: pass,
-      domain_resolver: {
-        server: "dns-remote",
-        strategy: settings.VLTRenableIPv6 ? "prefer_ipv4" : "ipv4_only",
-        rewrite_ttl: 60
-      },
       detour: ""
     };
     if (protocol === "socks") chainOutbound2.version = "5";
     return chainOutbound2;
   }
-  const { server, port, uuid, flow, security, type, sni, fp, alpn, pbk, sid, headerType, host, path, serviceName } = chainProxyParams;
+  const { server, port, uuid, flow, security, type, sni, fp, alpn, pbk, sid, headerType, host, path, serviceName } = outProxyParams;
   const chainOutbound = {
     type: atob("dmxlc3M="),
     tag: "",
@@ -8345,11 +8350,6 @@ function buildSingBoxChainOutbound(chainProxyParams) {
     server_port: +port,
     uuid,
     flow,
-    domain_resolver: {
-      server: "dns-remote",
-      strategy: settings.VLTRenableIPv6 ? "prefer_ipv4" : "ipv4_only",
-      rewrite_ttl: 60
-    },
     detour: ""
   };
   if (security === "tls" || security === "reality") {
@@ -8464,7 +8464,7 @@ async function getSingBoxCustomConfig(env, isFragment) {
   let chainProxy;
   if (settings.outProxy) {
     try {
-      chainProxy = buildSingBoxChainOutbound(settings.outProxyParams, settings.VLTRenableIPv6);
+      chainProxy = buildSingBoxChainOutbound(settings.outProxyParams);
     } catch (error) {
       console.log("An error occured while parsing chain proxy: ", error);
       chainProxy = void 0;
@@ -8960,7 +8960,7 @@ function buildXrayVLOutbound(tag2, address, port, host, sni, proxyIPs, isFragmen
     outbound.streamSettings.security = "tls";
     outbound.streamSettings.tlsSettings = {
       allowInsecure,
-      fingerprint: "randomized",
+      fingerprint: settings.fingerprint,
       alpn: ["http/1.1"],
       serverName: sni
     };
@@ -9005,7 +9005,7 @@ function buildXrayTROutbound(tag2, address, port, host, sni, proxyIPs, isFragmen
     outbound.streamSettings.security = "tls";
     outbound.streamSettings.tlsSettings = {
       allowInsecure,
-      fingerprint: "randomized",
+      fingerprint: settings.fingerprint,
       alpn: ["http/1.1"],
       serverName: sni
     };
@@ -9067,9 +9067,11 @@ function buildXrayWarpOutbound(warpConfigs, endpoint, isWoW) {
   return outbound;
 }
 __name(buildXrayWarpOutbound, "buildXrayWarpOutbound");
-function buildXrayChainOutbound(chainProxyParams, VLTRenableIPv6) {
-  if (["socks", "http"].includes(chainProxyParams.protocol)) {
-    const { protocol, server: server2, port: port2, user, pass } = chainProxyParams;
+function buildXrayChainOutbound() {
+  const { outProxyParams, VLTRenableIPv6 } = globalThis.settings;
+  const { protocol } = outProxyParams;
+  if (["socks", "http"].includes(protocol)) {
+    const { server: server2, port: port2, user, pass } = outProxyParams;
     return {
       protocol,
       settings: {
@@ -9122,7 +9124,7 @@ function buildXrayChainOutbound(chainProxyParams, VLTRenableIPv6) {
     authority,
     serviceName,
     mode
-  } = chainProxyParams;
+  } = outProxyParams;
   const proxyOutbound = {
     mux: {
       concurrency: 8,
@@ -9345,7 +9347,7 @@ async function getXrayCustomConfigs(env, isFragment) {
   let chainProxy;
   if (settings.outProxy) {
     try {
-      chainProxy = buildXrayChainOutbound(settings.outProxyParams, settings.VLTRenableIPv6);
+      chainProxy = buildXrayChainOutbound();
     } catch (error) {
       console.log("An error occured while parsing chain proxy: ", error);
       chainProxy = void 0;
@@ -9845,15 +9847,15 @@ async function respond(success, status, message2, body, customHeaders) {
 __name(respond, "respond");
 
 // src/helpers/init.js
-function initializeParams(request, env) {
+function init(request, env) {
   const url = new URL(request.url);
   const searchParams = new URLSearchParams(url.search);
-  globalThis.panelVersion = __PANEL_VERSION__;
+  globalThis.panelVersion = __VERSION__;
   globalThis.defaultHttpPorts = [80, 8080, 2052, 2082, 2086, 2095, 8880];
   globalThis.defaultHttpsPorts = [443, 8443, 2053, 2083, 2087, 2096];
   globalThis.userID = env.UUID;
   globalThis.TRPassword = env.TR_PASS;
-  globalThis.proxyIPs = env.PROXY_IP || `${atob("YnBi")}.yousef.isegaro.com`;
+  globalThis.proxyIPs = env.PROXY_IP || atob("YnBiLnlvdXNlZi5pc2VnYXJvLmNvbQ==");
   globalThis.hostName = request.headers.get("Host");
   globalThis.pathName = url.pathname;
   globalThis.client = searchParams.get("app");
@@ -9862,16 +9864,164 @@ function initializeParams(request, env) {
   globalThis.fallbackDomain = env.FALLBACK || "speed.cloudflare.com";
   globalThis.subPath = env.SUB_PATH || globalThis.userID;
   if (!["/error", "/secrets", "/favicon.ico"].includes(globalThis.pathName)) {
-    if (!globalThis.userID || !globalThis.TRPassword) throw new Error(`Please set UUID and ${atob("VHJvamFu")} password first. Please visit <a href="${globalThis.urlOrigin}/secrets" target="_blank">here</a> to generate them.`, { cause: "init" });
-    if (globalThis.userID && !isValidUUID(globalThis.userID)) throw new Error(`Invalid UUID: ${globalThis.userID}`, { cause: "init" });
     if (typeof env.kv !== "object") throw new Error("KV Dataset is not properly set! Please refer to tutorials.", { cause: "init" });
+    if (!globalThis.userID || !globalThis.TRPassword) throw new Error(`Please set UUID and ${atob("VHJvamFu")} password first. Please visit <a href="${globalThis.urlOrigin}/secrets" target="_blank">here</a> to generate them.`, { cause: "init" });
+    if (!isValidUUID(globalThis.userID)) throw new Error(`Invalid UUID: ${globalThis.userID}`, { cause: "init" });
   }
 }
-__name(initializeParams, "initializeParams");
+__name(init, "init");
+
+// src/protocols/common.js
+import { connect } from "cloudflare:sockets";
+var WS_READY_STATE_OPEN = 1;
+var WS_READY_STATE_CLOSING = 2;
+async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawClientData, webSocket, VLResponseHeader, log) {
+  async function connectAndWrite(address, port) {
+    if (/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?).){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(address)) address = `${atob("d3d3Lg==")}${address}${atob("LnNzbGlwLmlv")}`;
+    const tcpSocket2 = connect({
+      hostname: address,
+      port
+    });
+    remoteSocket.value = tcpSocket2;
+    log(`connected to ${address}:${port}`);
+    const writer = tcpSocket2.writable.getWriter();
+    await writer.write(rawClientData);
+    writer.releaseLock();
+    return tcpSocket2;
+  }
+  __name(connectAndWrite, "connectAndWrite");
+  async function retry() {
+    let proxyIP, proxyIpPort;
+    const encodedPanelProxyIPs = globalThis.pathName.split("/")[2] || "";
+    const decodedProxyIPs = encodedPanelProxyIPs ? atob(encodedPanelProxyIPs) : globalThis.proxyIPs;
+    const proxyIpList = decodedProxyIPs.split(",").map((ip) => ip.trim());
+    const selectedProxyIP = proxyIpList[Math.floor(Math.random() * proxyIpList.length)];
+    if (selectedProxyIP.includes("]:")) {
+      const match = selectedProxyIP.match(/^(\[.*?\]):(\d+)$/);
+      proxyIP = match[1];
+      proxyIpPort = match[2];
+    } else {
+      [proxyIP, proxyIpPort] = selectedProxyIP.split(":");
+    }
+    const tcpSocket2 = await connectAndWrite(proxyIP || addressRemote, +proxyIpPort || portRemote);
+    tcpSocket2.closed.catch((error) => {
+      console.log("retry tcpSocket closed error", error);
+    }).finally(() => {
+      safeCloseWebSocket(webSocket);
+    });
+    remoteSocketToWS(tcpSocket2, webSocket, VLResponseHeader, null, log);
+  }
+  __name(retry, "retry");
+  const tcpSocket = await connectAndWrite(addressRemote, portRemote);
+  remoteSocketToWS(tcpSocket, webSocket, VLResponseHeader, retry, log);
+}
+__name(handleTCPOutBound, "handleTCPOutBound");
+async function remoteSocketToWS(remoteSocket, webSocket, VLResponseHeader, retry, log) {
+  let VLHeader = VLResponseHeader;
+  let hasIncomingData = false;
+  await remoteSocket.readable.pipeTo(
+    new WritableStream({
+      start() {
+      },
+      async write(chunk, controller) {
+        hasIncomingData = true;
+        if (webSocket.readyState !== WS_READY_STATE_OPEN) {
+          controller.error("webSocket.readyState is not open, maybe close");
+        }
+        if (VLHeader) {
+          webSocket.send(await new Blob([VLHeader, chunk]).arrayBuffer());
+          VLHeader = null;
+        } else {
+          webSocket.send(chunk);
+        }
+      },
+      close() {
+        log(`remoteConnection!.readable is close with hasIncomingData is ${hasIncomingData}`);
+      },
+      abort(reason) {
+        console.error(`remoteConnection!.readable abort`, reason);
+      }
+    })
+  ).catch((error) => {
+    console.error(`VLRemoteSocketToWS has exception `, error.stack || error);
+    safeCloseWebSocket(webSocket);
+  });
+  if (hasIncomingData === false && retry) {
+    log(`retry`);
+    retry();
+  }
+}
+__name(remoteSocketToWS, "remoteSocketToWS");
+function makeReadableWebSocketStream(webSocketServer, earlyDataHeader, log) {
+  let readableStreamCancel = false;
+  const stream = new ReadableStream({
+    start(controller) {
+      webSocketServer.addEventListener("message", (event) => {
+        if (readableStreamCancel) {
+          return;
+        }
+        const message2 = event.data;
+        controller.enqueue(message2);
+      });
+      webSocketServer.addEventListener("close", () => {
+        safeCloseWebSocket(webSocketServer);
+        if (readableStreamCancel) {
+          return;
+        }
+        controller.close();
+      });
+      webSocketServer.addEventListener("error", (err) => {
+        log("webSocketServer has error");
+        controller.error(err);
+      });
+      const { earlyData, error } = base64ToArrayBuffer(earlyDataHeader);
+      if (error) {
+        controller.error(error);
+      } else if (earlyData) {
+        controller.enqueue(earlyData);
+      }
+    },
+    pull(controller) {
+    },
+    cancel(reason) {
+      if (readableStreamCancel) {
+        return;
+      }
+      log(`ReadableStream was canceled, due to ${reason}`);
+      readableStreamCancel = true;
+      safeCloseWebSocket(webSocketServer);
+    }
+  });
+  return stream;
+}
+__name(makeReadableWebSocketStream, "makeReadableWebSocketStream");
+function base64ToArrayBuffer(base64Str) {
+  if (!base64Str) {
+    return { earlyData: null, error: null };
+  }
+  try {
+    base64Str = base64Str.replace(/-/g, "+").replace(/_/g, "/");
+    const decode2 = atob(base64Str);
+    const arryBuffer = Uint8Array.from(decode2, (c) => c.charCodeAt(0));
+    return { earlyData: arryBuffer.buffer, error: null };
+  } catch (error) {
+    return { earlyData: null, error };
+  }
+}
+__name(base64ToArrayBuffer, "base64ToArrayBuffer");
+function safeCloseWebSocket(socket) {
+  try {
+    if (socket.readyState === WS_READY_STATE_OPEN || socket.readyState === WS_READY_STATE_CLOSING) {
+      socket.close();
+    }
+  } catch (error) {
+    console.error("safeCloseWebSocket error", error);
+  }
+}
+__name(safeCloseWebSocket, "safeCloseWebSocket");
 
 // src/protocols/vless.js
-import { connect } from "cloudflare:sockets";
-async function VLOverWSHandler(request) {
+async function VlOverWSHandler(request) {
   const webSocketPair = new WebSocketPair();
   const [client, webSocket] = Object.values(webSocketPair);
   webSocket.accept();
@@ -9950,95 +10100,10 @@ async function VLOverWSHandler(request) {
   });
   return new Response(null, {
     status: 101,
-    // @ts-ignore
     webSocket: client
   });
 }
-__name(VLOverWSHandler, "VLOverWSHandler");
-async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawClientData, webSocket, VLResponseHeader, log) {
-  async function connectAndWrite(address, port) {
-    if (/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?).){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(address)) address = `${atob("d3d3Lg==")}${address}${atob("LnNzbGlwLmlv")}`;
-    const tcpSocket2 = connect({
-      hostname: address,
-      port
-    });
-    remoteSocket.value = tcpSocket2;
-    log(`connected to ${address}:${port}`);
-    const writer = tcpSocket2.writable.getWriter();
-    await writer.write(rawClientData);
-    writer.releaseLock();
-    return tcpSocket2;
-  }
-  __name(connectAndWrite, "connectAndWrite");
-  async function retry() {
-    let proxyIP, proxyIpPort;
-    const encodedPanelProxyIPs = globalThis.pathName.split("/")[2] || "";
-    const decodedProxyIPs = encodedPanelProxyIPs ? atob(encodedPanelProxyIPs) : globalThis.proxyIPs;
-    const proxyIpList = decodedProxyIPs.split(",").map((ip) => ip.trim());
-    const selectedProxyIP = proxyIpList[Math.floor(Math.random() * proxyIpList.length)];
-    if (selectedProxyIP.includes("]:")) {
-      const match = selectedProxyIP.match(/^(\[.*?\]):(\d+)$/);
-      proxyIP = match[1];
-      proxyIpPort = match[2];
-    } else {
-      [proxyIP, proxyIpPort] = selectedProxyIP.split(":");
-    }
-    const tcpSocket2 = await connectAndWrite(proxyIP || addressRemote, +proxyIpPort || portRemote);
-    tcpSocket2.closed.catch((error) => {
-      console.log("retry tcpSocket closed error", error);
-    }).finally(() => {
-      safeCloseWebSocket(webSocket);
-    });
-    VLRemoteSocketToWS(tcpSocket2, webSocket, VLResponseHeader, null, log);
-  }
-  __name(retry, "retry");
-  const tcpSocket = await connectAndWrite(addressRemote, portRemote);
-  VLRemoteSocketToWS(tcpSocket, webSocket, VLResponseHeader, retry, log);
-}
-__name(handleTCPOutBound, "handleTCPOutBound");
-function makeReadableWebSocketStream(webSocketServer, earlyDataHeader, log) {
-  let readableStreamCancel = false;
-  const stream = new ReadableStream({
-    start(controller) {
-      webSocketServer.addEventListener("message", (event) => {
-        if (readableStreamCancel) {
-          return;
-        }
-        const message2 = event.data;
-        controller.enqueue(message2);
-      });
-      webSocketServer.addEventListener("close", () => {
-        safeCloseWebSocket(webSocketServer);
-        if (readableStreamCancel) {
-          return;
-        }
-        controller.close();
-      });
-      webSocketServer.addEventListener("error", (err) => {
-        log("webSocketServer has error");
-        controller.error(err);
-      });
-      const { earlyData, error } = base64ToArrayBuffer(earlyDataHeader);
-      if (error) {
-        controller.error(error);
-      } else if (earlyData) {
-        controller.enqueue(earlyData);
-      }
-    },
-    pull(controller) {
-    },
-    cancel(reason) {
-      if (readableStreamCancel) {
-        return;
-      }
-      log(`ReadableStream was canceled, due to ${reason}`);
-      readableStreamCancel = true;
-      safeCloseWebSocket(webSocketServer);
-    }
-  });
-  return stream;
-}
-__name(makeReadableWebSocketStream, "makeReadableWebSocketStream");
+__name(VlOverWSHandler, "VlOverWSHandler");
 function processVLHeader(VLBuffer, userID) {
   if (VLBuffer.byteLength < 24) {
     return {
@@ -10121,75 +10186,6 @@ function processVLHeader(VLBuffer, userID) {
   };
 }
 __name(processVLHeader, "processVLHeader");
-async function VLRemoteSocketToWS(remoteSocket, webSocket, VLResponseHeader, retry, log) {
-  let remoteChunkCount = 0;
-  let chunks = [];
-  let VLHeader = VLResponseHeader;
-  let hasIncomingData = false;
-  await remoteSocket.readable.pipeTo(
-    new WritableStream({
-      start() {
-      },
-      /**
-       *
-       * @param {Uint8Array} chunk
-       * @param {*} controller
-       */
-      async write(chunk, controller) {
-        hasIncomingData = true;
-        if (webSocket.readyState !== WS_READY_STATE_OPEN) {
-          controller.error("webSocket.readyState is not open, maybe close");
-        }
-        if (VLHeader) {
-          webSocket.send(await new Blob([VLHeader, chunk]).arrayBuffer());
-          VLHeader = null;
-        } else {
-          webSocket.send(chunk);
-        }
-      },
-      close() {
-        log(`remoteConnection!.readable is close with hasIncomingData is ${hasIncomingData}`);
-      },
-      abort(reason) {
-        console.error(`remoteConnection!.readable abort`, reason);
-      }
-    })
-  ).catch((error) => {
-    console.error(`VLRemoteSocketToWS has exception `, error.stack || error);
-    safeCloseWebSocket(webSocket);
-  });
-  if (hasIncomingData === false && retry) {
-    log(`retry`);
-    retry();
-  }
-}
-__name(VLRemoteSocketToWS, "VLRemoteSocketToWS");
-function base64ToArrayBuffer(base64Str) {
-  if (!base64Str) {
-    return { earlyData: null, error: null };
-  }
-  try {
-    base64Str = base64Str.replace(/-/g, "+").replace(/_/g, "/");
-    const decode2 = atob(base64Str);
-    const arryBuffer = Uint8Array.from(decode2, (c) => c.charCodeAt(0));
-    return { earlyData: arryBuffer.buffer, error: null };
-  } catch (error) {
-    return { earlyData: null, error };
-  }
-}
-__name(base64ToArrayBuffer, "base64ToArrayBuffer");
-var WS_READY_STATE_OPEN = 1;
-var WS_READY_STATE_CLOSING = 2;
-function safeCloseWebSocket(socket) {
-  try {
-    if (socket.readyState === WS_READY_STATE_OPEN || socket.readyState === WS_READY_STATE_CLOSING) {
-      socket.close();
-    }
-  } catch (error) {
-    console.error("safeCloseWebSocket error", error);
-  }
-}
-__name(safeCloseWebSocket, "safeCloseWebSocket");
 var byteToHex = [];
 for (let i = 0; i < 256; ++i) {
   byteToHex.push((i + 256).toString(16).slice(1));
@@ -10256,10 +10252,6 @@ async function handleUDPOutBound(webSocket, VLResponseHeader, log) {
   });
   const writer = transformStream.writable.getWriter();
   return {
-    /**
-     *
-     * @param {Uint8Array} chunk
-    */
     write(chunk) {
       writer.write(chunk);
     }
@@ -10269,8 +10261,7 @@ __name(handleUDPOutBound, "handleUDPOutBound");
 
 // src/protocols/trojan.js
 var import_js_sha256 = __toESM(require_sha256(), 1);
-import { connect as connect2 } from "cloudflare:sockets";
-async function TROverWSHandler(request) {
+async function TrOverWSHandler(request) {
   const webSocketPair = new WebSocketPair();
   const [client, webSocket] = Object.values(webSocketPair);
   webSocket.accept();
@@ -10280,7 +10271,7 @@ async function TROverWSHandler(request) {
     console.log(`[${address}:${portWithRandomLog}] ${info}`, event || "");
   }, "log");
   const earlyDataHeader = request.headers.get("sec-websocket-protocol") || "";
-  const readableWebSocketStream = makeReadableWebSocketStream2(webSocket, earlyDataHeader, log);
+  const readableWebSocketStream = makeReadableWebSocketStream(webSocket, earlyDataHeader, log);
   let remoteSocketWapper = {
     value: null
   };
@@ -10309,7 +10300,15 @@ async function TROverWSHandler(request) {
         if (hasError) {
           throw new Error(message2);
         }
-        handleTCPOutBound2(remoteSocketWapper, addressRemote, portRemote, rawClientData, webSocket, log);
+        handleTCPOutBound(
+          remoteSocketWapper,
+          addressRemote,
+          portRemote,
+          rawClientData,
+          webSocket,
+          null,
+          log
+        );
       },
       close() {
         log(`readableWebSocketStream is closed`);
@@ -10327,7 +10326,7 @@ async function TROverWSHandler(request) {
     webSocket: client
   });
 }
-__name(TROverWSHandler, "TROverWSHandler");
+__name(TrOverWSHandler, "TrOverWSHandler");
 function parseTRHeader(buffer) {
   if (buffer.byteLength < 56) {
     return {
@@ -10411,157 +10410,12 @@ function parseTRHeader(buffer) {
   };
 }
 __name(parseTRHeader, "parseTRHeader");
-async function handleTCPOutBound2(remoteSocket, addressRemote, portRemote, rawClientData, webSocket, log) {
-  async function connectAndWrite(address, port) {
-    if (/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?).){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(address)) address = `${atob("d3d3Lg==")}${address}${atob("LnNzbGlwLmlv")}`;
-    const tcpSocket2 = connect2({
-      hostname: address,
-      port
-    });
-    remoteSocket.value = tcpSocket2;
-    log(`connected to ${address}:${port}`);
-    const writer = tcpSocket2.writable.getWriter();
-    await writer.write(rawClientData);
-    writer.releaseLock();
-    return tcpSocket2;
-  }
-  __name(connectAndWrite, "connectAndWrite");
-  async function retry() {
-    let proxyIP, proxyIpPort;
-    const encodedPanelProxyIPs = globalThis.pathName.split("/")[2] || "";
-    const decodedProxyIPs = encodedPanelProxyIPs ? atob(encodedPanelProxyIPs) : globalThis.proxyIPs;
-    const proxyIpList = decodedProxyIPs.split(",").map((ip) => ip.trim());
-    const selectedProxyIP = proxyIpList[Math.floor(Math.random() * proxyIpList.length)];
-    if (selectedProxyIP.includes("]:")) {
-      const match = selectedProxyIP.match(/^(\[.*?\]):(\d+)$/);
-      proxyIP = match[1];
-      proxyIpPort = match[2];
-    } else {
-      [proxyIP, proxyIpPort] = selectedProxyIP.split(":");
-    }
-    const tcpSocket2 = await connectAndWrite(proxyIP || addressRemote, proxyIpPort || portRemote);
-    tcpSocket2.closed.catch((error) => {
-      console.log("retry tcpSocket closed error", error);
-    }).finally(() => {
-      safeCloseWebSocket2(webSocket);
-    });
-    TRRemoteSocketToWS(tcpSocket2, webSocket, null, log);
-  }
-  __name(retry, "retry");
-  const tcpSocket = await connectAndWrite(addressRemote, portRemote);
-  TRRemoteSocketToWS(tcpSocket, webSocket, retry, log);
-}
-__name(handleTCPOutBound2, "handleTCPOutBound");
-function makeReadableWebSocketStream2(webSocketServer, earlyDataHeader, log) {
-  let readableStreamCancel = false;
-  const stream = new ReadableStream({
-    start(controller) {
-      webSocketServer.addEventListener("message", (event) => {
-        if (readableStreamCancel) {
-          return;
-        }
-        const message2 = event.data;
-        controller.enqueue(message2);
-      });
-      webSocketServer.addEventListener("close", () => {
-        safeCloseWebSocket2(webSocketServer);
-        if (readableStreamCancel) {
-          return;
-        }
-        controller.close();
-      });
-      webSocketServer.addEventListener("error", (err) => {
-        log("webSocketServer has error");
-        controller.error(err);
-      });
-      const { earlyData, error } = base64ToArrayBuffer2(earlyDataHeader);
-      if (error) {
-        controller.error(error);
-      } else if (earlyData) {
-        controller.enqueue(earlyData);
-      }
-    },
-    pull(controller) {
-    },
-    cancel(reason) {
-      if (readableStreamCancel) {
-        return;
-      }
-      log(`ReadableStream was canceled, due to ${reason}`);
-      readableStreamCancel = true;
-      safeCloseWebSocket2(webSocketServer);
-    }
-  });
-  return stream;
-}
-__name(makeReadableWebSocketStream2, "makeReadableWebSocketStream");
-async function TRRemoteSocketToWS(remoteSocket, webSocket, retry, log) {
-  let hasIncomingData = false;
-  await remoteSocket.readable.pipeTo(
-    new WritableStream({
-      start() {
-      },
-      /**
-       *
-       * @param {Uint8Array} chunk
-       * @param {*} controller
-       */
-      async write(chunk, controller) {
-        hasIncomingData = true;
-        if (webSocket.readyState !== WS_READY_STATE_OPEN2) {
-          controller.error("webSocket connection is not open");
-        }
-        webSocket.send(chunk);
-      },
-      close() {
-        log(`remoteSocket.readable is closed, hasIncomingData: ${hasIncomingData}`);
-      },
-      abort(reason) {
-        console.error("remoteSocket.readable abort", reason);
-      }
-    })
-  ).catch((error) => {
-    console.error(`TRRemoteSocketToWS error:`, error.stack || error);
-    safeCloseWebSocket2(webSocket);
-  });
-  if (hasIncomingData === false && retry) {
-    log(`retry`);
-    retry();
-  }
-}
-__name(TRRemoteSocketToWS, "TRRemoteSocketToWS");
-function base64ToArrayBuffer2(base64Str) {
-  if (!base64Str) {
-    return { earlyData: null, error: null };
-  }
-  try {
-    base64Str = base64Str.replace(/-/g, "+").replace(/_/g, "/");
-    const decode2 = atob(base64Str);
-    const arryBuffer = Uint8Array.from(decode2, (c) => c.charCodeAt(0));
-    return { earlyData: arryBuffer.buffer, error: null };
-  } catch (error) {
-    return { earlyData: null, error };
-  }
-}
-__name(base64ToArrayBuffer2, "base64ToArrayBuffer");
-var WS_READY_STATE_OPEN2 = 1;
-var WS_READY_STATE_CLOSING2 = 2;
-function safeCloseWebSocket2(socket) {
-  try {
-    if (socket.readyState === WS_READY_STATE_OPEN2 || socket.readyState === WS_READY_STATE_CLOSING2) {
-      socket.close();
-    }
-  } catch (error) {
-    console.error("safeCloseWebSocket error", error);
-  }
-}
-__name(safeCloseWebSocket2, "safeCloseWebSocket");
 
 // src/worker.js
 var worker_default = {
   async fetch(request, env) {
     try {
-      initializeParams(request, env);
+      init(request, env);
       const upgradeHeader = request.headers.get("Upgrade");
       const path = globalThis.pathName;
       if (!upgradeHeader || upgradeHeader !== "websocket") {
@@ -10574,7 +10428,7 @@ var worker_default = {
         if (path.startsWith("/favicon.ico")) return await serveIcon();
         return await fallback(request);
       } else {
-        return path.startsWith("/tr") ? await TROverWSHandler(request) : await VLOverWSHandler(request);
+        return path.startsWith("/tr") ? await TrOverWSHandler(request) : await VlOverWSHandler(request);
       }
     } catch (error) {
       return await handleError(error);
