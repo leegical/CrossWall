@@ -7850,7 +7850,7 @@ async function getNormalConfigs(isFragment) {
     }
     if (isTLS) {
       config.searchParams.append("sni", sni);
-      config.searchParams.append("fp", "randomized");
+      config.searchParams.append("fp", settings.fingerprint);
       config.searchParams.append("alpn", "http/1.1");
       if (globalThis.client === "hiddify-frag") {
         config.searchParams.append("fragment", `${settings.fragmentLengthMin}-${settings.fragmentLengthMax},${settings.fragmentIntervalMin}-${settings.fragmentIntervalMax},hellotls`);
@@ -9590,8 +9590,12 @@ async function handlePanel(request, env) {
 }
 __name(handlePanel, "handlePanel");
 async function handleError(error) {
-  const message2 = encodeURIComponent(error.message);
-  return Response.redirect(`${globalThis.urlOrigin}/error?message=${message2}`, 302);
+  const encodedHtml = __ERROR_HTML_CONTENT__;
+  const html = new TextDecoder("utf-8").decode(Uint8Array.from(atob(encodedHtml), (c) => c.charCodeAt(0))).replace("__ERROR_MESSAGE__", error.message);
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html" }
+  });
 }
 __name(handleError, "handleError");
 async function handleLogin(request, env) {
@@ -9808,15 +9812,6 @@ async function renderSecrets() {
   });
 }
 __name(renderSecrets, "renderSecrets");
-async function renderError() {
-  const encodedHtml = __ERROR_HTML_CONTENT__;
-  const html = new TextDecoder("utf-8").decode(Uint8Array.from(atob(encodedHtml), (c) => c.charCodeAt(0)));
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html" }
-  });
-}
-__name(renderError, "renderError");
 async function updateWarpConfigs(request, env) {
   if (request.method === "POST") {
     const auth = await Authenticate(request, env);
@@ -9863,7 +9858,7 @@ function init(request, env) {
   globalThis.dohURL = env.DOH_URL || "https://cloudflare-dns.com/dns-query";
   globalThis.fallbackDomain = env.FALLBACK || "speed.cloudflare.com";
   globalThis.subPath = env.SUB_PATH || globalThis.userID;
-  if (!["/error", "/secrets", "/favicon.ico"].includes(globalThis.pathName)) {
+  if (!["/secrets", "/favicon.ico"].includes(globalThis.pathName)) {
     if (typeof env.kv !== "object") throw new Error("KV Dataset is not properly set! Please refer to tutorials.", { cause: "init" });
     if (!globalThis.userID || !globalThis.TRPassword) throw new Error(`Please set UUID and ${atob("VHJvamFu")} password first. Please visit <a href="${globalThis.urlOrigin}/secrets" target="_blank">here</a> to generate them.`, { cause: "init" });
     if (!isValidUUID(globalThis.userID)) throw new Error(`Invalid UUID: ${globalThis.userID}`, { cause: "init" });
@@ -10423,7 +10418,6 @@ var worker_default = {
         if (path.startsWith("/sub")) return await handleSubscriptions(request, env);
         if (path.startsWith("/login")) return await handleLogin(request, env);
         if (path.startsWith("/logout")) return await logout(request, env);
-        if (path.startsWith("/error")) return await renderError();
         if (path.startsWith("/secrets")) return await renderSecrets();
         if (path.startsWith("/favicon.ico")) return await serveIcon();
         return await fallback(request);
