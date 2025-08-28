@@ -5530,6 +5530,13 @@ function checkSigCryptoKey(key, alg, usage) {
         throw unusable("Ed25519");
       break;
     }
+    case "ML-DSA-44":
+    case "ML-DSA-65":
+    case "ML-DSA-87": {
+      if (!isAlgorithm(key.algorithm, alg))
+        throw unusable(alg);
+      break;
+    }
     case "ES256":
     case "ES384":
     case "ES512": {
@@ -5649,6 +5656,19 @@ function subtleMapping(jwk) {
   let algorithm;
   let keyUsages;
   switch (jwk.kty) {
+    case "AKP": {
+      switch (jwk.alg) {
+        case "ML-DSA-44":
+        case "ML-DSA-65":
+        case "ML-DSA-87":
+          algorithm = { name: jwk.alg };
+          keyUsages = jwk.priv ? ["sign"] : ["verify"];
+          break;
+        default:
+          throw new JOSENotSupported('Invalid or unsupported JWK "alg" (Algorithm) Parameter value');
+      }
+      break;
+    }
     case "RSA": {
       switch (jwk.alg) {
         case "PS256":
@@ -5735,9 +5755,11 @@ var jwk_to_key_default = /* @__PURE__ */ __name(async (jwk) => {
   }
   const { algorithm, keyUsages } = subtleMapping(jwk);
   const keyData = { ...jwk };
-  delete keyData.alg;
+  if (keyData.kty !== "AKP") {
+    delete keyData.alg;
+  }
   delete keyData.use;
-  return crypto.subtle.importKey("jwk", keyData, algorithm, jwk.ext ?? (jwk.d ? false : true), jwk.key_ops ?? keyUsages);
+  return crypto.subtle.importKey("jwk", keyData, algorithm, jwk.ext ?? (jwk.d || jwk.priv ? false : true), jwk.key_ops ?? keyUsages);
 }, "default");
 
 // node_modules/jose/dist/webapi/lib/validate_crit.js
@@ -5788,11 +5810,11 @@ function isJWK(key) {
 }
 __name(isJWK, "isJWK");
 function isPrivateJWK(key) {
-  return key.kty !== "oct" && typeof key.d === "string";
+  return key.kty !== "oct" && (key.kty === "AKP" && typeof key.priv === "string" || typeof key.d === "string");
 }
 __name(isPrivateJWK, "isPrivateJWK");
 function isPublicJWK(key) {
-  return key.kty !== "oct" && typeof key.d === "undefined";
+  return key.kty !== "oct" && typeof key.d === "undefined" && typeof key.priv === "undefined";
 }
 __name(isPublicJWK, "isPublicJWK");
 function isSecretJWK(key) {
@@ -5846,6 +5868,18 @@ var handleKeyObject = /* @__PURE__ */ __name((keyObject, alg) => {
     cryptoKey = keyObject.toCryptoKey(keyObject.asymmetricKeyType, extractable, [
       isPublic ? "verify" : "sign"
     ]);
+  }
+  switch (keyObject.asymmetricKeyType) {
+    case "ml-dsa-44":
+    case "ml-dsa-65":
+    case "ml-dsa-87": {
+      if (alg !== keyObject.asymmetricKeyType.toUpperCase()) {
+        throw new TypeError("given KeyObject instance cannot be used for this algorithm");
+      }
+      cryptoKey = keyObject.toCryptoKey(keyObject.asymmetricKeyType, extractable, [
+        isPublic ? "verify" : "sign"
+      ]);
+    }
   }
   if (keyObject.asymmetricKeyType === "rsa") {
     let hash;
@@ -6101,6 +6135,10 @@ var subtle_dsa_default = /* @__PURE__ */ __name((alg, algorithm) => {
     case "Ed25519":
     case "EdDSA":
       return { name: "Ed25519" };
+    case "ML-DSA-44":
+    case "ML-DSA-65":
+    case "ML-DSA-87":
+      return { name: alg };
     default:
       throw new JOSENotSupported(`alg ${alg} is not supported either by JOSE or your javascript runtime`);
   }
