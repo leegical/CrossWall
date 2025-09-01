@@ -5975,9 +5975,9 @@ var normalize_key_default = /* @__PURE__ */ __name(async (key, alg) => {
     if ("toCryptoKey" in key && typeof key.toCryptoKey === "function") {
       try {
         return handleKeyObject(key, alg);
-      } catch (err) {
-        if (err instanceof TypeError) {
-          throw err;
+      } catch (err2) {
+        if (err2 instanceof TypeError) {
+          throw err2;
         }
       }
     }
@@ -6777,24 +6777,32 @@ function isDomain(address) {
   return domainPattern.test(address);
 }
 __name(isDomain, "isDomain");
-async function resolveDNS(domain) {
-  const dohURLv4 = `${globalThis.dohURL}?name=${encodeURIComponent(domain)}&type=A`;
-  const dohURLv6 = `${globalThis.dohURL}?name=${encodeURIComponent(domain)}&type=AAAA`;
+async function resolveDNS(domain, onlyIPv4 = false) {
+  const dohBaseURL = `${globalThis.dohURL}?name=${encodeURIComponent(domain)}`;
+  const dohURLs = {
+    ipv4: `${dohBaseURL}&type=A`,
+    ipv6: `${dohBaseURL}&type=AAAA`
+  };
   try {
-    const [ipv4Response, ipv6Response] = await Promise.all([
-      fetch(dohURLv4, { headers: { accept: "application/dns-json" } }),
-      fetch(dohURLv6, { headers: { accept: "application/dns-json" } })
-    ]);
-    const ipv4Addresses = await ipv4Response.json();
-    const ipv6Addresses = await ipv6Response.json();
-    const ipv4 = ipv4Addresses.Answer ? ipv4Addresses.Answer.map((record) => record.data) : [];
-    const ipv6 = ipv6Addresses.Answer ? ipv6Addresses.Answer.map((record) => record.data) : [];
+    const ipv4 = await fetchDNSRecords(dohURLs.ipv4, 1);
+    const ipv6 = onlyIPv4 ? [] : await fetchDNSRecords(dohURLs.ipv4, 28);
     return { ipv4, ipv6 };
   } catch (error) {
-    throw new Error(`Error resolving DNS: ${error}`);
+    throw new Error(`Error resolving DNS for ${domain}: ${error.message}`);
   }
 }
 __name(resolveDNS, "resolveDNS");
+async function fetchDNSRecords(url, recordType) {
+  try {
+    const response = await fetch(url, { headers: { accept: "application/dns-json" } });
+    const data = await response.json();
+    if (!data.Answer) return [];
+    return data.Answer.filter((record) => record.type === recordType).map((record) => record.data);
+  } catch (error) {
+    throw new Error(`Failed to fetch DNS records from ${url}: ${error.message}`);
+  }
+}
+__name(fetchDNSRecords, "fetchDNSRecords");
 async function getConfigAddresses(isFragment) {
   const { settings, hostName } = globalThis;
   const resolved = await resolveDNS(hostName);
@@ -6835,16 +6843,29 @@ function randomUpperCase(str) {
   return result;
 }
 __name(randomUpperCase, "randomUpperCase");
-function getRandomPath(length) {
+function getRandomString(lengthMin, lengthMax) {
   let result = "";
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   const charactersLength = characters.length;
+  const length = Math.floor(Math.random() * (lengthMax - lengthMin + 1)) + lengthMin;
   for (let i = 0; i < length; i++) {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
   }
   return result;
 }
-__name(getRandomPath, "getRandomPath");
+__name(getRandomString, "getRandomString");
+function generateWsPath(protocol) {
+  const settings = globalThis.settings;
+  const config = {
+    junk: getRandomString(8, 16),
+    protocol,
+    mode: settings.proxyIPMode,
+    panelIPs: settings.proxyIPMode === "proxyip" ? settings.proxyIPs : settings.nat64Prefixes
+  };
+  const encodedConfig = btoa(JSON.stringify(config));
+  return `/${encodedConfig}`;
+}
+__name(generateWsPath, "generateWsPath");
 function base64ToDecimal(base64) {
   const binaryString = atob(base64);
   const hexString = Array.from(binaryString).map((char) => char.charCodeAt(0).toString(16).padStart(2, "0")).join("");
@@ -6989,7 +7010,9 @@ async function updateDataset(request, env) {
     localDNS: populateField("localDNS", "8.8.8.8"),
     antiSanctionDNS: populateField("antiSanctionDNS", "78.157.42.100"),
     VLTRFakeDNS: populateField("VLTRFakeDNS", false),
+    proxyIPMode: populateField("proxyIPMode", "proxyip"),
     proxyIPs: populateField("proxyIPs", []),
+    nat64Prefixes: populateField("nat64Prefixes", []),
     outProxy: populateField("outProxy", ""),
     outProxyParams: populateField("outProxy", {}, (field) => extractChainProxyParams(field)),
     cleanIPs: populateField("cleanIPs", []),
@@ -7001,7 +7024,7 @@ async function updateDataset(request, env) {
     VLConfigs: populateField("VLConfigs", true),
     TRConfigs: populateField("TRConfigs", true),
     ports: populateField("ports", [443]),
-    fingerprint: populateField("fingerprint", "randomized"),
+    fingerprint: populateField("fingerprint", "chrome"),
     fragmentLengthMin: populateField("fragmentLengthMin", 100),
     fragmentLengthMax: populateField("fragmentLengthMax", 200),
     fragmentIntervalMin: populateField("fragmentIntervalMin", 1),
@@ -7236,11 +7259,10 @@ function buildClashRoutingRules(isWarp) {
   return { rules, ruleProviders };
 }
 __name(buildClashRoutingRules, "buildClashRoutingRules");
-function buildClashVLOutbound(remark, address, port, host, sni, proxyIPs, allowInsecure) {
+function buildClashVLOutbound(remark, address, port, host, sni, allowInsecure) {
   const settings = globalThis.settings;
   const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
   const addr = isIPv6(address) ? address.replace(/\[|\]/g, "") : address;
-  const path = `/${getRandomPath(16)}${proxyIPs.length ? `/${btoa(proxyIPs.join(","))}` : ""}`;
   const ipVersion = settings.VLTRenableIPv6 ? "dual" : "ipv4";
   const fingerprint = settings.fingerprint === "randomized" ? "random" : settings.fingerprint;
   const outbound = {
@@ -7256,7 +7278,7 @@ function buildClashVLOutbound(remark, address, port, host, sni, proxyIPs, allowI
     "tfo": true,
     "mptcp": true,
     "ws-opts": {
-      "path": path,
+      "path": generateWsPath("vl"),
       "headers": { "Host": host },
       "max-early-data": 2560,
       "early-data-header-name": "Sec-WebSocket-Protocol"
@@ -7273,10 +7295,9 @@ function buildClashVLOutbound(remark, address, port, host, sni, proxyIPs, allowI
   return outbound;
 }
 __name(buildClashVLOutbound, "buildClashVLOutbound");
-function buildClashTROutbound(remark, address, port, host, sni, proxyIPs, allowInsecure) {
+function buildClashTROutbound(remark, address, port, host, sni, allowInsecure) {
   const settings = globalThis.settings;
   const addr = isIPv6(address) ? address.replace(/\[|\]/g, "") : address;
-  const path = `/tr${getRandomPath(16)}${proxyIPs.length ? `/${btoa(proxyIPs.join(","))}` : ""}`;
   const ipVersion = settings.VLTRenableIPv6 ? "dual" : "ipv4";
   const fingerprint = settings.fingerprint === "randomized" ? "random" : settings.fingerprint;
   return {
@@ -7291,7 +7312,7 @@ function buildClashTROutbound(remark, address, port, host, sni, proxyIPs, allowI
     "tfo": true,
     "mptcp": true,
     "ws-opts": {
-      "path": path,
+      "path": generateWsPath("tr"),
       "headers": { "Host": host },
       "max-early-data": 2560,
       "early-data-header-name": "Sec-WebSocket-Protocol"
@@ -7525,7 +7546,6 @@ async function getClashNormalConfig(env) {
             port,
             host,
             sni,
-            settings.proxyIPs,
             isCustomAddr
           );
           outbounds.proxies.push(VLOutbound);
@@ -7538,7 +7558,6 @@ async function getClashNormalConfig(env) {
             port,
             host,
             sni,
-            settings.proxyIPs,
             isCustomAddr
           );
           outbounds.proxies.push(TROutbound);
@@ -7863,16 +7882,16 @@ async function getNormalConfigs(isFragment) {
   const buildConfig = /* @__PURE__ */ __name((protocol, addr, port, host, sni, remark) => {
     const isTLS = globalThis.defaultHttpsPorts.includes(port);
     const security = isTLS ? "tls" : "none";
-    const path = `${getRandomPath(16)}${settings.proxyIPs.length ? `/${btoa(settings.proxyIPs.join(","))}` : ""}`;
     const config = new URL(`${protocol}://config`);
-    let pathPrefix = "";
+    let pathProtocol = "vl";
     if (protocol === atob("dmxlc3M=")) {
       config.username = globalThis.userID;
       config.searchParams.append("encryption", "none");
     } else {
       config.username = globalThis.TRPassword;
-      pathPrefix = "tr";
+      pathProtocol = "tr";
     }
+    const path = generateWsPath(pathProtocol);
     config.hostname = addr;
     config.port = port;
     config.searchParams.append("host", host);
@@ -7882,9 +7901,9 @@ async function getNormalConfigs(isFragment) {
     if (globalThis.client === "singbox") {
       config.searchParams.append("eh", "Sec-WebSocket-Protocol");
       config.searchParams.append("ed", "2560");
-      config.searchParams.append("path", `/${pathPrefix}${path}`);
+      config.searchParams.append("path", path);
     } else {
-      config.searchParams.append("path", `/${pathPrefix}${path}?ed=2560`);
+      config.searchParams.append("path", `${path}?ed=2560`);
     }
     if (isTLS) {
       config.searchParams.append("sni", sni);
@@ -8244,7 +8263,6 @@ function buildSingBoxRoutingRules(isWarp) {
 __name(buildSingBoxRoutingRules, "buildSingBoxRoutingRules");
 function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure, isFragment) {
   const settings = globalThis.settings;
-  const path = `/${getRandomPath(16)}${settings.proxyIPs.length ? `/${btoa(settings.proxyIPs.join(","))}` : ""}`;
   const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
   const outbound = {
     tag: remark,
@@ -8253,6 +8271,7 @@ function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure,
     server_port: port,
     uuid: globalThis.userID,
     network: "tcp",
+    tcp_fast_open: true,
     packet_encoding: "",
     transport: {
       early_data_header_name: "Sec-WebSocket-Protocol",
@@ -8260,11 +8279,9 @@ function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure,
       headers: {
         Host: host
       },
-      path,
+      path: generateWsPath("vl"),
       type: "ws"
-    },
-    tcp_fast_open: true,
-    tcp_multi_path: true
+    }
   };
   if (tls) outbound.tls = {
     alpn: "http/1.1",
@@ -8282,7 +8299,6 @@ function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure,
 __name(buildSingBoxVLOutbound, "buildSingBoxVLOutbound");
 function buildSingBoxTROutbound(remark, address, port, host, sni, allowInsecure, isFragment) {
   const settings = globalThis.settings;
-  const path = `/tr${getRandomPath(16)}${settings.proxyIPs.length ? `/${btoa(settings.proxyIPs.join(","))}` : ""}`;
   const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
   const outbound = {
     tag: remark,
@@ -8291,17 +8307,16 @@ function buildSingBoxTROutbound(remark, address, port, host, sni, allowInsecure,
     server: address,
     server_port: port,
     network: "tcp",
+    tcp_fast_open: true,
     transport: {
       early_data_header_name: "Sec-WebSocket-Protocol",
       max_early_data: 2560,
       headers: {
         Host: host
       },
-      path,
+      path: generateWsPath("tr"),
       type: "ws"
-    },
-    tcp_fast_open: true,
-    tcp_multi_path: true
+    }
   };
   if (tls) outbound.tls = {
     alpn: "http/1.1",
@@ -8614,7 +8629,8 @@ var singboxConfigTemp = {
     {
       type: "selector",
       tag: "\u2705 Selector",
-      outbounds: []
+      outbounds: [],
+      interrupt_exist_connections: false
     },
     {
       type: "direct",
@@ -8970,10 +8986,9 @@ function buildXrayRoutingRules(isChain, isBalancer, isWorkerLess, isWarp) {
   return rules;
 }
 __name(buildXrayRoutingRules, "buildXrayRoutingRules");
-function buildXrayVLOutbound(tag2, address, port, host, sni, proxyIPs, isFragment, allowInsecure) {
+function buildXrayVLOutbound(tag2, address, port, host, sni, isFragment, allowInsecure) {
   const settings = globalThis.settings;
-  const proxyIpPath = proxyIPs.length ? `/${btoa(proxyIPs.join(","))}` : "";
-  const path = `/${getRandomPath(16)}${proxyIpPath}?ed=2560`;
+  const path = `${generateWsPath("vl")}?ed=2560`;
   const outbound = {
     protocol: atob("dmxlc3M="),
     settings: {
@@ -9020,10 +9035,9 @@ function buildXrayVLOutbound(tag2, address, port, host, sni, proxyIPs, isFragmen
   return outbound;
 }
 __name(buildXrayVLOutbound, "buildXrayVLOutbound");
-function buildXrayTROutbound(tag2, address, port, host, sni, proxyIPs, isFragment, allowInsecure) {
+function buildXrayTROutbound(tag2, address, port, host, sni, isFragment, allowInsecure) {
   const settings = globalThis.settings;
-  const proxyIpPath = proxyIPs.length ? `/${btoa(proxyIPs.join(","))}` : "";
-  const path = `/tr${getRandomPath(16)}${proxyIpPath}?ed=2560`;
+  const path = `${generateWsPath("tr")}?ed=2560`;
   const outbound = {
     protocol: atob("dHJvamFu"),
     settings: {
@@ -9425,7 +9439,7 @@ async function getXrayCustomConfigs(env, isFragment) {
         const host = isCustomAddr ? settings.customCdnHost : globalThis.hostName;
         const remark = generateRemark(protocolIndex, port, addr, settings.cleanIPs, protocol, configType);
         const customConfig = await buildXrayConfig(remark, false, chainProxy, false, false, isFragment, false, [addr], null);
-        const outbound = protocol === atob("VkxFU1M=") ? buildXrayVLOutbound("proxy", addr, port, host, sni, settings.proxyIPs, isFragment, isCustomAddr) : buildXrayTROutbound("proxy", addr, port, host, sni, settings.proxyIPs, isFragment, isCustomAddr);
+        const outbound = protocol === atob("VkxFU1M=") ? buildXrayVLOutbound("proxy", addr, port, host, sni, isFragment, isCustomAddr) : buildXrayTROutbound("proxy", addr, port, host, sni, isFragment, isCustomAddr);
         customConfig.outbounds.unshift({ ...outbound });
         outbounds.proxies.push(outbound);
         if (chainProxy) {
@@ -9888,15 +9902,27 @@ async function respond(success, status, message2, body, customHeaders) {
 __name(respond, "respond");
 
 // src/helpers/init.js
-function init(request, env) {
+function init(request, env, upgradeHeader) {
   const url = new URL(request.url);
   const searchParams = new URLSearchParams(url.search);
+  if (upgradeHeader === "websocket") {
+    const encodedPathConfig = url.pathname.replace("/", "") || "";
+    try {
+      const { protocol, mode, panelIPs } = JSON.parse(atob(encodedPathConfig));
+      globalThis.wsProtocol = protocol;
+      globalThis.proxyMode = mode;
+      globalThis.panelIPs = panelIPs;
+    } catch (error) {
+      return new Response("Failed to parse WebSocket path config", { status: 400 });
+    }
+    globalThis.proxyIPs = env.PROXY_IP || atob("YnBiLnlvdXNlZi5pc2VnYXJvLmNvbQ==");
+    globalThis.nat64Prefixes = env.NAT64_PREFIX || "[2a02:898:146:64::],[2602:fc59:b0:64::],[2602:fc59:11:64::]";
+  }
   globalThis.panelVersion = __VERSION__;
   globalThis.defaultHttpPorts = [80, 8080, 2052, 2082, 2086, 2095, 8880];
   globalThis.defaultHttpsPorts = [443, 8443, 2053, 2083, 2087, 2096];
   globalThis.userID = env.UUID;
   globalThis.TRPassword = env.TR_PASS;
-  globalThis.proxyIPs = env.PROXY_IP || atob("YnBiLnlvdXNlZi5pc2VnYXJvLmNvbQ==");
   globalThis.hostName = request.headers.get("Host");
   globalThis.pathName = url.pathname;
   globalThis.client = searchParams.get("app");
@@ -9918,43 +9944,69 @@ var WS_READY_STATE_OPEN = 1;
 var WS_READY_STATE_CLOSING = 2;
 async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawClientData, webSocket, VLResponseHeader, log) {
   async function connectAndWrite(address, port) {
-    if (/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?).){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(address)) address = `${atob("d3d3Lg==")}${address}${atob("LnNzbGlwLmlv")}`;
-    const tcpSocket2 = connect({
+    const tcpSocket = connect({
       hostname: address,
       port
     });
-    remoteSocket.value = tcpSocket2;
+    remoteSocket.value = tcpSocket;
     log(`connected to ${address}:${port}`);
-    const writer = tcpSocket2.writable.getWriter();
+    const writer = tcpSocket.writable.getWriter();
     await writer.write(rawClientData);
     writer.releaseLock();
-    return tcpSocket2;
+    return tcpSocket;
   }
   __name(connectAndWrite, "connectAndWrite");
   async function retry() {
-    let proxyIP, proxyIpPort;
-    const encodedPanelProxyIPs = globalThis.pathName.split("/")[2] || "";
-    const decodedProxyIPs = encodedPanelProxyIPs ? atob(encodedPanelProxyIPs) : globalThis.proxyIPs;
-    const proxyIpList = decodedProxyIPs.split(",").map((ip) => ip.trim());
-    const selectedProxyIP = proxyIpList[Math.floor(Math.random() * proxyIpList.length)];
-    if (selectedProxyIP.includes("]:")) {
-      const match = selectedProxyIP.match(/^(\[.*?\]):(\d+)$/);
-      proxyIP = match[1];
-      proxyIpPort = match[2];
-    } else {
-      [proxyIP, proxyIpPort] = selectedProxyIP.split(":");
+    let tcpSocket;
+    const mode = globalThis.proxyMode;
+    const parseIPs = /* @__PURE__ */ __name((value) => value ? value.split(",").map((val) => val.trim()).filter(Boolean) : null, "parseIPs");
+    if (mode === "proxyip") {
+      log(`direct connection failed, trying to use Proxy IP for ${addressRemote}`);
+      try {
+        const { panelIPs, proxyIPs } = globalThis;
+        const finalProxyIPs = panelIPs.length ? panelIPs : parseIPs(proxyIPs);
+        const selectedProxyIP = finalProxyIPs[Math.floor(Math.random() * finalProxyIPs.length)];
+        let proxyIP, proxyIpPort;
+        if (selectedProxyIP.includes("]:")) {
+          const match = selectedProxyIP.match(/^(\[.*?\]):(\d+)$/);
+          proxyIP = match[1];
+          proxyIpPort = match[2];
+        } else {
+          [proxyIP, proxyIpPort] = selectedProxyIP.split(":");
+        }
+        tcpSocket = await connectAndWrite(proxyIP || addressRemote, +proxyIpPort || portRemote);
+      } catch (error) {
+        console.error("Proxy IP connection failed:", error);
+        webSocket.close(1011, "Proxy IP connection failed: " + error.message);
+      }
+    } else if (mode === "nat64") {
+      log(`direct connection failed, trying to generate dynamic NAT64 IP for ${addressRemote}`);
+      try {
+        const { panelIPs, nat64Prefixes } = globalThis;
+        const prefixes = panelIPs.length ? panelIPs : parseIPs(nat64Prefixes);
+        const selectedPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+        const dynamicProxyIP = await getDynamicProxyIP(addressRemote, selectedPrefix);
+        tcpSocket = await connectAndWrite(dynamicProxyIP, portRemote);
+      } catch (error) {
+        console.error("NAT64 connection failed:", error);
+        webSocket.close(1011, "NAT64 connection failed: " + error.message);
+      }
     }
-    const tcpSocket2 = await connectAndWrite(proxyIP || addressRemote, +proxyIpPort || portRemote);
-    tcpSocket2.closed.catch((error) => {
+    tcpSocket.closed.catch((error) => {
       console.log("retry tcpSocket closed error", error);
     }).finally(() => {
       safeCloseWebSocket(webSocket);
     });
-    remoteSocketToWS(tcpSocket2, webSocket, VLResponseHeader, null, log);
+    remoteSocketToWS(tcpSocket, webSocket, VLResponseHeader, null, log);
   }
   __name(retry, "retry");
-  const tcpSocket = await connectAndWrite(addressRemote, portRemote);
-  remoteSocketToWS(tcpSocket, webSocket, VLResponseHeader, retry, log);
+  try {
+    const tcpSocket = await connectAndWrite(addressRemote, portRemote);
+    remoteSocketToWS(tcpSocket, webSocket, VLResponseHeader, retry, log);
+  } catch (error) {
+    console.error("Connection failed:", err);
+    webSocket.close(1011, "Connection failed");
+  }
 }
 __name(handleTCPOutBound, "handleTCPOutBound");
 async function remoteSocketToWS(remoteSocket, webSocket, VLResponseHeader, retry, log) {
@@ -10011,9 +10063,9 @@ function makeReadableWebSocketStream(webSocketServer, earlyDataHeader, log) {
         }
         controller.close();
       });
-      webSocketServer.addEventListener("error", (err) => {
+      webSocketServer.addEventListener("error", (err2) => {
         log("webSocketServer has error");
-        controller.error(err);
+        controller.error(err2);
       });
       const { earlyData, error } = base64ToArrayBuffer(earlyDataHeader);
       if (error) {
@@ -10060,6 +10112,37 @@ function safeCloseWebSocket(socket) {
   }
 }
 __name(safeCloseWebSocket, "safeCloseWebSocket");
+async function getDynamicProxyIP(address, nat64Prefix) {
+  let finalAddress = address;
+  if (!isIPv4(address)) {
+    const { ipv4 } = await resolveDNS(address, true);
+    if (ipv4.length) {
+      finalAddress = ipv4[0];
+    } else {
+      throw new Error("Unable to find IPv4 in DNS records");
+    }
+  }
+  return convertToNAT64IPv6(finalAddress, nat64Prefix);
+}
+__name(getDynamicProxyIP, "getDynamicProxyIP");
+function convertToNAT64IPv6(ipv4Address, nat64Prefix) {
+  const parts = ipv4Address.split(".");
+  if (parts.length !== 4) {
+    throw new Error("Invalid IPv4 address");
+  }
+  const hex = parts.map((part) => {
+    const num = parseInt(part, 10);
+    if (num < 0 || num > 255) {
+      throw new Error("Invalid IPv4 address");
+    }
+    return num.toString(16).padStart(2, "0");
+  });
+  const match = nat64Prefix.match(/^\[([0-9A-Fa-f:]+)\]$/);
+  if (match) {
+    return `[${match[1]}${hex[0]}${hex[1]}:${hex[2]}${hex[3]}]`;
+  }
+}
+__name(convertToNAT64IPv6, "convertToNAT64IPv6");
 
 // src/protocols/vless.js
 async function VlOverWSHandler(request) {
@@ -10080,7 +10163,7 @@ async function VlOverWSHandler(request) {
   let isDns = false;
   readableWebSocketStream.pipeTo(
     new WritableStream({
-      async write(chunk, controller) {
+      async write(chunk) {
         if (isDns && udpStreamWrite) {
           return udpStreamWrite(chunk);
         }
@@ -10104,20 +10187,18 @@ async function VlOverWSHandler(request) {
         if (hasError) {
           throw new Error(message2);
         }
+        const VLResponseHeader = new Uint8Array([VLVersion[0], 0]);
+        const rawClientData = chunk.slice(rawDataIndex);
         if (isUDP) {
           if (portRemote === 53) {
             isDns = true;
+            const { write } = await handleUDPOutBound(webSocket, VLResponseHeader, log);
+            udpStreamWrite = write;
+            udpStreamWrite(rawClientData);
+            return;
           } else {
             throw new Error("UDP proxy only enable for DNS which is port 53");
           }
-        }
-        const VLResponseHeader = new Uint8Array([VLVersion[0], 0]);
-        const rawClientData = chunk.slice(rawDataIndex);
-        if (isDns) {
-          const { write } = await handleUDPOutBound(webSocket, VLResponseHeader, log);
-          udpStreamWrite = write;
-          udpStreamWrite(rawClientData);
-          return;
         }
         handleTCPOutBound(
           remoteSocketWapper,
@@ -10136,8 +10217,8 @@ async function VlOverWSHandler(request) {
         log(`readableWebSocketStream is abort`, JSON.stringify(reason));
       }
     })
-  ).catch((err) => {
-    log("readableWebSocketStream pipeTo error", err);
+  ).catch((err2) => {
+    log("readableWebSocketStream pipeTo error", err2);
   });
   return new Response(null, {
     status: 101,
@@ -10358,8 +10439,8 @@ async function TrOverWSHandler(request) {
         log(`readableWebSocketStream is aborted`, JSON.stringify(reason));
       }
     })
-  ).catch((err) => {
-    log("readableWebSocketStream pipeTo error", err);
+  ).catch((err2) => {
+    log("readableWebSocketStream pipeTo error", err2);
   });
   return new Response(null, {
     status: 101,
@@ -10456,20 +10537,21 @@ __name(parseTRHeader, "parseTRHeader");
 var worker_default = {
   async fetch(request, env) {
     try {
-      init(request, env);
       const upgradeHeader = request.headers.get("Upgrade");
+      init(request, env, upgradeHeader);
       const path = globalThis.pathName;
-      if (!upgradeHeader || upgradeHeader !== "websocket") {
+      if (upgradeHeader === "websocket") {
+        if (globalThis.wsProtocol === "vl") return await VlOverWSHandler(request);
+        if (globalThis.wsProtocol === "tr") return await TrOverWSHandler(request);
+      } else {
         if (path.startsWith("/panel")) return await handlePanel(request, env);
         if (path.startsWith("/sub")) return await handleSubscriptions(request, env);
         if (path.startsWith("/login")) return await handleLogin(request, env);
         if (path.startsWith("/logout")) return await logout(request, env);
         if (path.startsWith("/secrets")) return await renderSecrets();
         if (path.startsWith("/favicon.ico")) return await serveIcon();
-        return await fallback(request);
-      } else {
-        return path.startsWith("/tr") ? await TrOverWSHandler(request) : await VlOverWSHandler(request);
       }
+      return await fallback(request);
     } catch (error) {
       return await handleError(error);
     }
