@@ -6785,7 +6785,7 @@ async function resolveDNS(domain, onlyIPv4 = false) {
   };
   try {
     const ipv4 = await fetchDNSRecords(dohURLs.ipv4, 1);
-    const ipv6 = onlyIPv4 ? [] : await fetchDNSRecords(dohURLs.ipv4, 28);
+    const ipv6 = onlyIPv4 ? [] : await fetchDNSRecords(dohURLs.ipv6, 28);
     return { ipv4, ipv6 };
   } catch (error) {
     throw new Error(`Error resolving DNS for ${domain}: ${error.message}`);
@@ -6805,13 +6805,12 @@ async function fetchDNSRecords(url, recordType) {
 __name(fetchDNSRecords, "fetchDNSRecords");
 async function getConfigAddresses(isFragment) {
   const { settings, hostName } = globalThis;
-  const resolved = await resolveDNS(hostName);
-  const defaultIPv6 = settings.VLTRenableIPv6 ? resolved.ipv6.map((ip) => `[${ip}]`) : [];
+  const resolved = await resolveDNS(hostName, !settings.VLTRenableIPv6);
   const addrs = [
     hostName,
     "www.speedtest.net",
     ...resolved.ipv4,
-    ...defaultIPv6,
+    ...resolved.ipv6.map((ip) => `[${ip}]`),
     ...settings.cleanIPs
   ];
   return isFragment ? addrs : [...addrs, ...settings.customCdnAddrs];
@@ -6898,6 +6897,15 @@ function base64EncodeUnicode(str) {
   return btoa(String.fromCharCode(...new TextEncoder().encode(str)));
 }
 __name(base64EncodeUnicode, "base64EncodeUnicode");
+function parseHostPort(input) {
+  const regex = /^(?:\[(?<ipv6>.+?)\]|(?<host>[^:]+))(:(?<port>\d+))?$/;
+  const match = input.match(regex);
+  if (!match) return null;
+  const host = match.groups.ipv6 || match.groups.host;
+  const port = match.groups.port ? parseInt(match.groups.port, 10) : null;
+  return { host, port };
+}
+__name(parseHostPort, "parseHostPort");
 
 // src/protocols/warp.js
 var import_tweetnacl2 = __toESM(require_nacl_fast(), 1);
@@ -7326,10 +7334,7 @@ function buildClashTROutbound(remark, address, port, host, sni, allowInsecure) {
 __name(buildClashTROutbound, "buildClashTROutbound");
 function buildClashWarpOutbound(warpConfigs, remark, endpoint, chain, isPro) {
   const settings = globalThis.settings;
-  const ipv6Regex = /\[(.*?)\]/;
-  const portRegex = /[^:]*$/;
-  const endpointServer = endpoint.includes("[") ? endpoint.match(ipv6Regex)[1] : endpoint.split(":")[0];
-  const endpointPort = endpoint.includes("[") ? +endpoint.match(portRegex)[0] : +endpoint.split(":")[1];
+  const { host, port } = parseHostPort(endpoint);
   const ipVersion = settings.warpEnableIPv6 ? "dual" : "ipv4";
   const {
     warpIPv6,
@@ -7344,8 +7349,8 @@ function buildClashWarpOutbound(warpConfigs, remark, endpoint, chain, isPro) {
     "ipv6": warpIPv6,
     "ip-version": ipVersion,
     "private-key": privateKey,
-    "server": chain ? "162.159.192.1" : endpointServer,
-    "port": chain ? 2408 : endpointPort,
+    "server": chain ? "162.159.192.1" : host,
+    "port": chain ? 2408 : port,
     "public-key": publicKey,
     "allowed-ips": ["0.0.0.0/0", "::/0"],
     "reserved": reserved,
@@ -8334,12 +8339,9 @@ function buildSingBoxTROutbound(remark, address, port, host, sni, allowInsecure,
 __name(buildSingBoxTROutbound, "buildSingBoxTROutbound");
 function buildSingBoxWarpOutbound(warpConfigs, remark, endpoint, chain) {
   const settings = globalThis.settings;
-  const ipv6Regex = /\[(.*?)\]/;
-  const portRegex = /[^:]*$/;
-  const endpointServer = endpoint.includes("[") ? endpoint.match(ipv6Regex)[1] : endpoint.split(":")[0];
-  const endpointPort = endpoint.includes("[") ? +endpoint.match(portRegex)[0] : +endpoint.split(":")[1];
-  const server = chain ? "162.159.192.1" : endpointServer;
-  const port = chain ? 2408 : endpointPort;
+  const { host, port } = parseHostPort(endpoint);
+  const server = chain ? "162.159.192.1" : host;
+  const finalPort = chain ? 2408 : port;
   const {
     warpIPv6,
     reserved,
@@ -8357,7 +8359,7 @@ function buildSingBoxWarpOutbound(warpConfigs, remark, endpoint, chain) {
     peers: [
       {
         address: server,
-        port,
+        port: finalPort,
         public_key: publicKey,
         reserved: base64ToDecimal(reserved),
         allowed_ips: [
@@ -8842,8 +8844,8 @@ async function buildXrayDNS(outboundAddrs, domainToStaticIPs, isWorkerLess, isWa
   blockRules.filter(({ rule }) => rule).forEach(({ domain }) => {
     dnsHost[domain] = ["127.0.0.1"];
   });
-  const staticIPs = domainToStaticIPs ? await resolveDNS(domainToStaticIPs) : void 0;
-  if (staticIPs) dnsHost[domainToStaticIPs] = settings.VLTRenableIPv6 ? [...staticIPs.ipv4, ...staticIPs.ipv6] : staticIPs.ipv4;
+  const staticIPs = domainToStaticIPs ? await resolveDNS(domainToStaticIPs, !settings.VLTRenableIPv6) : void 0;
+  if (staticIPs) dnsHost[domainToStaticIPs] = [...staticIPs.ipv4, ...staticIPs.ipv6];
   const hosts = Object.keys(dnsHost).length ? { hosts: dnsHost } : {};
   const isIPv62 = settings.VLTRenableIPv6 && !isWarp || settings.warpEnableIPv6 && isWarp;
   const dnsObject = {
@@ -8859,7 +8861,7 @@ async function buildXrayDNS(outboundAddrs, domainToStaticIPs, isWorkerLess, isWa
     finalRemoteDNS = `https://${customDns}/dns-query`;
     dnsObject.hosts[customDns] = customDnsHosts;
     skipFallback = false;
-    dnsObject.disableFallback = true;
+    dnsObject.disableFallbackIfMatch = true;
   }
   const remoteDnsServer = buildDnsServer(finalRemoteDNS, null, null, null, "remote-dns");
   dnsObject.servers.push(remoteDnsServer);
@@ -9907,16 +9909,30 @@ function init(request, env, upgradeHeader) {
   const searchParams = new URLSearchParams(url.search);
   if (upgradeHeader === "websocket") {
     const encodedPathConfig = url.pathname.replace("/", "") || "";
+    const parseIPs = /* @__PURE__ */ __name((value) => value ? value.split(",").map((val) => val.trim()).filter(Boolean) : void 0, "parseIPs");
     try {
       const { protocol, mode, panelIPs } = JSON.parse(atob(encodedPathConfig));
       globalThis.wsProtocol = protocol;
       globalThis.proxyMode = mode;
       globalThis.panelIPs = panelIPs;
+      const proxyIPs = parseIPs(env.PROXY_IP) || [atob("YnBiLnlvdXNlZi5pc2VnYXJvLmNvbQ==")];
+      const nat64Prefixes = parseIPs(env.NAT64_PREFIX) || [
+        "[2a02:898:146:64::]",
+        "[2602:fc59:b0:64::]",
+        "[2602:fc59:11:64::]"
+      ];
+      let ips = [];
+      if (mode === "proxyip") {
+        ips = panelIPs.length ? panelIPs : proxyIPs;
+      } else if (mode === "nat64") {
+        ips = panelIPs.length ? panelIPs : nat64Prefixes;
+      } else {
+        return new Response("Not found", { status: 404 });
+      }
+      globalThis.proxyIP = ips[Math.floor(Math.random() * ips.length)];
     } catch (error) {
       return new Response("Failed to parse WebSocket path config", { status: 400 });
     }
-    globalThis.proxyIPs = env.PROXY_IP || atob("YnBiLnlvdXNlZi5pc2VnYXJvLmNvbQ==");
-    globalThis.nat64Prefixes = env.NAT64_PREFIX || "[2a02:898:146:64::],[2602:fc59:b0:64::],[2602:fc59:11:64::]";
   }
   globalThis.panelVersion = __VERSION__;
   globalThis.defaultHttpPorts = [80, 8080, 2052, 2082, 2086, 2095, 8880];
@@ -9931,9 +9947,9 @@ function init(request, env, upgradeHeader) {
   globalThis.fallbackDomain = env.FALLBACK || "speed.cloudflare.com";
   globalThis.subPath = env.SUB_PATH || globalThis.userID;
   if (!["/secrets", "/favicon.ico"].includes(globalThis.pathName)) {
-    if (typeof env.kv !== "object") throw new Error("KV Dataset is not properly set! Please refer to tutorials.", { cause: "init" });
     if (!globalThis.userID || !globalThis.TRPassword) throw new Error(`Please set UUID and ${atob("VHJvamFu")} password first. Please visit <a href="${globalThis.urlOrigin}/secrets" target="_blank">here</a> to generate them.`, { cause: "init" });
     if (!isValidUUID(globalThis.userID)) throw new Error(`Invalid UUID: ${globalThis.userID}`, { cause: "init" });
+    if (typeof env.kv !== "object") throw new Error("KV Dataset is not properly set! Please refer to tutorials.", { cause: "init" });
   }
 }
 __name(init, "init");
@@ -9959,22 +9975,11 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
   async function retry() {
     let tcpSocket;
     const mode = globalThis.proxyMode;
-    const parseIPs = /* @__PURE__ */ __name((value) => value ? value.split(",").map((val) => val.trim()).filter(Boolean) : null, "parseIPs");
     if (mode === "proxyip") {
       log(`direct connection failed, trying to use Proxy IP for ${addressRemote}`);
       try {
-        const { panelIPs, proxyIPs } = globalThis;
-        const finalProxyIPs = panelIPs.length ? panelIPs : parseIPs(proxyIPs);
-        const selectedProxyIP = finalProxyIPs[Math.floor(Math.random() * finalProxyIPs.length)];
-        let proxyIP, proxyIpPort;
-        if (selectedProxyIP.includes("]:")) {
-          const match = selectedProxyIP.match(/^(\[.*?\]):(\d+)$/);
-          proxyIP = match[1];
-          proxyIpPort = match[2];
-        } else {
-          [proxyIP, proxyIpPort] = selectedProxyIP.split(":");
-        }
-        tcpSocket = await connectAndWrite(proxyIP || addressRemote, +proxyIpPort || portRemote);
+        const { host, port } = parseHostPort(globalThis.proxyIP);
+        tcpSocket = await connectAndWrite(host || addressRemote, port || portRemote);
       } catch (error) {
         console.error("Proxy IP connection failed:", error);
         webSocket.close(1011, "Proxy IP connection failed: " + error.message);
@@ -9982,10 +9987,7 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
     } else if (mode === "nat64") {
       log(`direct connection failed, trying to generate dynamic NAT64 IP for ${addressRemote}`);
       try {
-        const { panelIPs, nat64Prefixes } = globalThis;
-        const prefixes = panelIPs.length ? panelIPs : parseIPs(nat64Prefixes);
-        const selectedPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-        const dynamicProxyIP = await getDynamicProxyIP(addressRemote, selectedPrefix);
+        const dynamicProxyIP = await getDynamicProxyIP(addressRemote, globalThis.proxyIP);
         tcpSocket = await connectAndWrite(dynamicProxyIP, portRemote);
       } catch (error) {
         console.error("NAT64 connection failed:", error);
