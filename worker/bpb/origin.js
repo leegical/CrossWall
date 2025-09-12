@@ -4441,7 +4441,7 @@ async function generateJWTToken(request, env) {
     await env.kv.put("secretKey", secretKey);
   }
   const secret = new TextEncoder().encode(secretKey);
-  const jwtToken = await new SignJWT({ userID: globalThis.userID }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("24h").sign(secret);
+  const jwtToken = await new SignJWT({ userID: globalConfig.userID }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("24h").sign(secret);
   return await respond(true, 200, "Successfully generated Auth token", null, {
     "Set-Cookie": `jwtToken=${jwtToken}; HttpOnly; Secure; Max-Age=${7 * 24 * 60 * 60}; Path=/; SameSite=Strict`,
     "Content-Type": "text/plain"
@@ -4502,7 +4502,7 @@ function isDomain(address) {
 }
 __name(isDomain, "isDomain");
 async function resolveDNS(domain, onlyIPv4 = false) {
-  const dohBaseURL = `${globalThis.dohURL}?name=${encodeURIComponent(domain)}`;
+  const dohBaseURL = `${globalConfig.dohURL}?name=${encodeURIComponent(domain)}`;
   const dohURLs = {
     ipv4: `${dohBaseURL}&type=A`,
     ipv6: `${dohBaseURL}&type=AAAA`
@@ -4528,10 +4528,10 @@ async function fetchDNSRecords(url, recordType) {
 }
 __name(fetchDNSRecords, "fetchDNSRecords");
 async function getConfigAddresses(isFragment) {
-  const { settings, hostName } = globalThis;
-  const resolved = await resolveDNS(hostName, !settings.VLTRenableIPv6);
+  const settings = globalThis.settings;
+  const resolved = await resolveDNS(httpConfig.hostName, !settings.VLTRenableIPv6);
   const addrs = [
-    hostName,
+    httpConfig.hostName,
     "www.speedtest.net",
     ...resolved.ipv4,
     ...resolved.ipv6.map((ip) => `[${ip}]`),
@@ -4706,7 +4706,7 @@ async function getDataset(request, env) {
     const configs = await fetchWarpConfigs(env);
     warpConfigs = configs;
   }
-  if (globalThis.panelVersion !== proxySettings.panelVersion) proxySettings = await updateDataset(request, env);
+  if (httpConfig.panelVersion !== proxySettings.panelVersion) proxySettings = await updateDataset(request, env);
   return { proxySettings, warpConfigs };
 }
 __name(getDataset, "getDataset");
@@ -4813,7 +4813,7 @@ async function updateDataset(request, env) {
     amneziaNoiseCount: populateField("amneziaNoiseCount", 5),
     amneziaNoiseSizeMin: populateField("amneziaNoiseSizeMin", 50),
     amneziaNoiseSizeMax: populateField("amneziaNoiseSizeMax", 100),
-    panelVersion: globalThis.panelVersion
+    panelVersion: httpConfig.panelVersion
   };
   try {
     await env.kv.put("proxySettings", JSON.stringify(settings));
@@ -4999,7 +4999,7 @@ function buildClashRoutingRules(isWarp) {
 __name(buildClashRoutingRules, "buildClashRoutingRules");
 function buildClashVLOutbound(remark, address, port, host, sni, allowInsecure) {
   const settings = globalThis.settings;
-  const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
+  const tls = httpConfig.defaultHttpsPorts.includes(port) ? true : false;
   const addr = isIPv6(address) ? address.replace(/\[|\]/g, "") : address;
   const ipVersion = settings.VLTRenableIPv6 ? "dual" : "ipv4";
   const fingerprint = settings.fingerprint === "randomized" ? "random" : settings.fingerprint;
@@ -5008,7 +5008,7 @@ function buildClashVLOutbound(remark, address, port, host, sni, allowInsecure) {
     "type": atob("dmxlc3M="),
     "server": addr,
     "port": port,
-    "uuid": globalThis.userID,
+    "uuid": globalConfig.userID,
     "udp": false,
     "packet-encoding": "packetaddr",
     "ip-version": ipVersion,
@@ -5043,7 +5043,7 @@ function buildClashTROutbound(remark, address, port, host, sni, allowInsecure) {
     "type": atob("dHJvamFu"),
     "server": addr,
     "port": port,
-    "password": globalThis.TRPassword,
+    "password": globalConfig.TrPass,
     "udp": false,
     "ip-version": ipVersion,
     "tls": true,
@@ -5238,7 +5238,7 @@ async function getClashWarpConfig(request, env, isPro) {
 }
 __name(getClashWarpConfig, "getClashWarpConfig");
 async function getClashNormalConfig(env) {
-  const { settings, hostName } = globalThis;
+  const settings = globalThis.settings;
   let chainProxy;
   if (settings.outProxy) {
     try {
@@ -5271,8 +5271,8 @@ async function getClashNormalConfig(env) {
         let VLOutbound, TROutbound;
         const isCustomAddr = settings.customCdnAddrs.includes(addr);
         const configType = isCustomAddr ? "C" : "";
-        const sni = isCustomAddr ? settings.customCdnSni : randomUpperCase(hostName);
-        const host = isCustomAddr ? settings.customCdnHost : hostName;
+        const sni = isCustomAddr ? settings.customCdnSni : randomUpperCase(httpConfig.hostName);
+        const host = isCustomAddr ? settings.customCdnHost : httpConfig.hostName;
         const tag2 = generateRemark(protocolIndex, port, addr, settings.cleanIPs, protocol, configType).replace(" : ", " - ");
         if (protocol === atob("VkxFU1M=")) {
           VLOutbound = buildClashVLOutbound(
@@ -5286,7 +5286,7 @@ async function getClashNormalConfig(env) {
           outbounds.proxies.push(VLOutbound);
           tags.push(tag2);
         }
-        if (protocol === atob("VHJvamFu") && globalThis.defaultHttpsPorts.includes(port)) {
+        if (protocol === atob("VHJvamFu") && httpConfig.defaultHttpsPorts.includes(port)) {
           TROutbound = buildClashTROutbound(
             chainProxy ? `proxy-${proxyIndex}` : tag2,
             addr,
@@ -5362,7 +5362,7 @@ var clashConfigTemp = {
     "enable": true,
     "force-dns-mapping": true,
     "parse-pure-ip": true,
-    "override-destination": false,
+    "override-destination": true,
     "sniff": {
       "HTTP": {
         "ports": [80, 8080, 8880, 2052, 2082, 2086, 2095]
@@ -5615,15 +5615,15 @@ async function getNormalConfigs(isFragment) {
   let proxyIndex = 1;
   const Addresses = await getConfigAddresses(isFragment);
   const buildConfig = /* @__PURE__ */ __name((protocol, addr, port, host, sni, remark) => {
-    const isTLS = globalThis.defaultHttpsPorts.includes(port);
+    const isTLS = httpConfig.defaultHttpsPorts.includes(port);
     const security = isTLS ? "tls" : "none";
     const config = new URL(`${protocol}://config`);
     let pathProtocol = "vl";
     if (protocol === atob("dmxlc3M=")) {
-      config.username = globalThis.userID;
+      config.username = globalConfig.userID;
       config.searchParams.append("encryption", "none");
     } else {
-      config.username = globalThis.TRPassword;
+      config.username = globalConfig.TrPass;
       pathProtocol = "tr";
     }
     const path = generateWsPath(pathProtocol);
@@ -5633,7 +5633,7 @@ async function getNormalConfigs(isFragment) {
     config.searchParams.append("type", "ws");
     config.searchParams.append("security", security);
     config.hash = remark;
-    if (globalThis.client === "singbox") {
+    if (httpConfig.client === "singbox") {
       config.searchParams.append("eh", "Sec-WebSocket-Protocol");
       config.searchParams.append("ed", "2560");
       config.searchParams.append("path", path);
@@ -5644,7 +5644,7 @@ async function getNormalConfigs(isFragment) {
       config.searchParams.append("sni", sni);
       config.searchParams.append("fp", settings.fingerprint);
       config.searchParams.append("alpn", "http/1.1");
-      if (globalThis.client === "hiddify-frag") {
+      if (httpConfig.client === "hiddify-frag") {
         config.searchParams.append("fragment", `${settings.fragmentLengthMin}-${settings.fragmentLengthMax},${settings.fragmentIntervalMin}-${settings.fragmentIntervalMax},hellotls`);
       }
     }
@@ -5654,8 +5654,8 @@ async function getNormalConfigs(isFragment) {
     Addresses.forEach((addr) => {
       const isCustomAddr = settings.customCdnAddrs.includes(addr) && !isFragment;
       const configType = isCustomAddr ? "C" : isFragment ? "F" : "";
-      const sni = isCustomAddr ? settings.customCdnSni : randomUpperCase(globalThis.hostName);
-      const host = isCustomAddr ? settings.customCdnHost : globalThis.hostName;
+      const sni = isCustomAddr ? settings.customCdnSni : randomUpperCase(httpConfig.hostName);
+      const host = isCustomAddr ? settings.customCdnHost : httpConfig.hostName;
       const VLRemark = generateRemark(proxyIndex, port, addr, settings.cleanIPs, atob("VkxFU1M="), configType);
       const TRRemark = generateRemark(proxyIndex, port, addr, settings.cleanIPs, atob("VHJvamFu"), configType);
       if (settings.VLConfigs) {
@@ -5998,13 +5998,13 @@ function buildSingBoxRoutingRules(isWarp) {
 __name(buildSingBoxRoutingRules, "buildSingBoxRoutingRules");
 function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure, isFragment) {
   const settings = globalThis.settings;
-  const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
+  const tls = httpConfig.defaultHttpsPorts.includes(port) ? true : false;
   const outbound = {
     tag: remark,
     type: atob("dmxlc3M="),
     server: address,
     server_port: port,
-    uuid: globalThis.userID,
+    uuid: globalConfig.userID,
     network: "tcp",
     tcp_fast_open: true,
     packet_encoding: "",
@@ -6034,11 +6034,11 @@ function buildSingBoxVLOutbound(remark, address, port, host, sni, allowInsecure,
 __name(buildSingBoxVLOutbound, "buildSingBoxVLOutbound");
 function buildSingBoxTROutbound(remark, address, port, host, sni, allowInsecure, isFragment) {
   const settings = globalThis.settings;
-  const tls = globalThis.defaultHttpsPorts.includes(port) ? true : false;
+  const tls = httpConfig.defaultHttpsPorts.includes(port) ? true : false;
   const outbound = {
     tag: remark,
     type: atob("dHJvamFu"),
-    password: globalThis.TRPassword,
+    password: globalConfig.TrPass,
     server: address,
     server_port: port,
     network: "tcp",
@@ -6201,6 +6201,7 @@ async function buildSingBoxConfig(selectorTags, urlTestTags, secondUrlTestTags, 
     tag: isWarp ? `\u{1F4A6} Warp - Best Ping \u{1F680}` : "\u{1F4A6} Best Ping \u{1F4A5}",
     outbounds: urlTestTags,
     url: "https://www.gstatic.com/generate_204",
+    interrupt_exist_connections: false,
     interval: isWarp ? `${settings.bestWarpInterval}s` : `${settings.bestVLTRInterval}s`
   };
   config.outbounds.push(urlTest);
@@ -6271,7 +6272,7 @@ async function getSingBoxCustomConfig(env, isFragment) {
     proxies: [],
     chains: []
   };
-  const ports = isFragment ? settings.ports.filter((port) => globalThis.defaultHttpsPorts.includes(port)) : settings.ports;
+  const ports = isFragment ? settings.ports.filter((port) => httpConfig.defaultHttpsPorts.includes(port)) : settings.ports;
   protocols.forEach((protocol) => {
     let protocolIndex = 1;
     ports.forEach((port) => {
@@ -6279,8 +6280,8 @@ async function getSingBoxCustomConfig(env, isFragment) {
         let VLOutbound, TROutbound;
         const isCustomAddr = settings.customCdnAddrs.includes(addr);
         const configType = isCustomAddr ? "C" : "";
-        const sni = isCustomAddr ? settings.customCdnSni : randomUpperCase(globalThis.hostName);
-        const host = isCustomAddr ? settings.customCdnHost : globalThis.hostName;
+        const sni = isCustomAddr ? settings.customCdnSni : randomUpperCase(httpConfig.hostName);
+        const host = isCustomAddr ? settings.customCdnHost : httpConfig.hostName;
         const tag2 = generateRemark(protocolIndex, port, addr, settings.cleanIPs, protocol, configType);
         if (protocol === atob("VkxFU1M=")) {
           VLOutbound = buildSingBoxVLOutbound(
@@ -6730,7 +6731,7 @@ function buildXrayVLOutbound(tag2, address, port, host, sni, isFragment, allowIn
           port,
           users: [
             {
-              id: globalThis.userID,
+              id: globalConfig.userID,
               encryption: "none",
               level: 8
             }
@@ -6741,7 +6742,9 @@ function buildXrayVLOutbound(tag2, address, port, host, sni, isFragment, allowIn
     streamSettings: {
       network: "ws",
       security: "none",
-      sockopt: {},
+      sockopt: {
+        tcpFastOpen: true
+      },
       wsSettings: {
         host,
         path
@@ -6749,7 +6752,7 @@ function buildXrayVLOutbound(tag2, address, port, host, sni, isFragment, allowIn
     },
     tag: tag2
   };
-  if (globalThis.defaultHttpsPorts.includes(port)) {
+  if (httpConfig.defaultHttpsPorts.includes(port)) {
     outbound.streamSettings.security = "tls";
     outbound.streamSettings.tlsSettings = {
       allowInsecure,
@@ -6777,7 +6780,7 @@ function buildXrayTROutbound(tag2, address, port, host, sni, isFragment, allowIn
         {
           address,
           port,
-          password: globalThis.TRPassword,
+          password: globalConfig.TrPass,
           level: 8
         }
       ]
@@ -6785,7 +6788,9 @@ function buildXrayTROutbound(tag2, address, port, host, sni, isFragment, allowIn
     streamSettings: {
       network: "ws",
       security: "none",
-      sockopt: {},
+      sockopt: {
+        tcpFastOpen: true
+      },
       wsSettings: {
         host,
         path
@@ -6793,7 +6798,7 @@ function buildXrayTROutbound(tag2, address, port, host, sni, isFragment, allowIn
     },
     tag: tag2
   };
-  if (globalThis.defaultHttpsPorts.includes(port)) {
+  if (httpConfig.defaultHttpsPorts.includes(port)) {
     outbound.streamSettings.security = "tls";
     outbound.streamSettings.tlsSettings = {
       allowInsecure,
@@ -6841,13 +6846,13 @@ function buildXrayWarpOutbound(warpConfigs, endpoint, isWoW) {
   };
   let chain = "";
   if (isWoW) chain = "proxy";
-  if (!isWoW && globalThis.client === "xray-pro") chain = "udp-noise";
+  if (!isWoW && httpConfig.client === "xray-pro") chain = "udp-noise";
   if (chain) outbound.streamSettings = {
     sockopt: {
       dialerProxy: chain
     }
   };
-  if (globalThis.client === "xray-knocker" && !isWoW) {
+  if (httpConfig.client === "xray-knocker" && !isWoW) {
     delete outbound.streamSettings;
     Object.assign(outbound.settings, {
       wnoise: settings.knockerNoiseMode,
@@ -7051,7 +7056,7 @@ async function buildXrayConfig(remark, isBalancer, isChain, balancerFallback, is
     const fragmentOutbound = buildFreedomOutbound(true, isWorkerLess, "fragment");
     config.outbounds.unshift(fragmentOutbound);
   }
-  if (isWarp && globalThis.client === "xray-pro") {
+  if (isWarp && httpConfig.client === "xray-pro") {
     const udpNoiseOutbound = buildFreedomOutbound(false, true, "udp-noise");
     config.outbounds.unshift(udpNoiseOutbound);
   }
@@ -7086,7 +7091,7 @@ async function buildXrayBestPingConfig(totalAddresses, chainProxy, outbounds, is
   return config;
 }
 __name(buildXrayBestPingConfig, "buildXrayBestPingConfig");
-async function buildXrayBestFragmentConfig(hostName, chainProxy, outbound) {
+async function buildXrayBestFragmentConfig(chainProxy, outbound) {
   const settings = globalThis.settings;
   const bestFragValues = [
     "10-20",
@@ -7108,7 +7113,7 @@ async function buildXrayBestFragmentConfig(hostName, chainProxy, outbound) {
     "80-100",
     "100-200"
   ];
-  const config = await buildXrayConfig(`\u{1F4A6} ${atob("QlBC")} F - Best Fragment \u{1F60E}`, true, chainProxy, false, false, true, false, [], hostName);
+  const config = await buildXrayConfig(`\u{1F4A6} ${atob("QlBC")} F - Best Fragment \u{1F60E}`, true, chainProxy, false, false, true, false, [], httpConfig.hostName);
   const bestFragOutbounds = [];
   bestFragValues.forEach((fragLength, index) => {
     if (chainProxy) {
@@ -7152,7 +7157,7 @@ async function getXrayCustomConfigs(env, isFragment) {
     }
   }
   const Addresses = await getConfigAddresses(settings.cleanIPs, settings.VLTRenableIPv6, settings.customCdnAddrs, isFragment);
-  const totalPorts = settings.ports.filter((port) => isFragment ? globalThis.defaultHttpsPorts.includes(port) : true);
+  const totalPorts = settings.ports.filter((port) => isFragment ? httpConfig.defaultHttpsPorts.includes(port) : true);
   let protocols = [];
   if (settings.VLConfigs) protocols.push(atob("VkxFU1M="));
   if (settings.TRConfigs) protocols.push(atob("VHJvamFu"));
@@ -7167,8 +7172,8 @@ async function getXrayCustomConfigs(env, isFragment) {
       for (const addr of Addresses) {
         const isCustomAddr = settings.customCdnAddrs.includes(addr) && !isFragment;
         const configType = isCustomAddr ? "C" : isFragment ? "F" : "";
-        const sni = isCustomAddr ? settings.customCdnSni : randomUpperCase(globalThis.hostName);
-        const host = isCustomAddr ? settings.customCdnHost : globalThis.hostName;
+        const sni = isCustomAddr ? settings.customCdnSni : randomUpperCase(httpConfig.hostName);
+        const host = isCustomAddr ? settings.customCdnHost : httpConfig.hostName;
         const remark = generateRemark(protocolIndex, port, addr, settings.cleanIPs, protocol, configType);
         const customConfig = await buildXrayConfig(remark, false, chainProxy, false, false, isFragment, false, [addr], null);
         const outbound = protocol === atob("VkxFU1M=") ? buildXrayVLOutbound("proxy", addr, port, host, sni, isFragment, isCustomAddr) : buildXrayTROutbound("proxy", addr, port, host, sni, isFragment, isCustomAddr);
@@ -7192,7 +7197,7 @@ async function getXrayCustomConfigs(env, isFragment) {
   const bestPing = await buildXrayBestPingConfig(Addresses, chainProxy, totalOutbounds, isFragment);
   const finalConfigs = [...configs, bestPing];
   if (isFragment) {
-    const bestFragment = await buildXrayBestFragmentConfig(globalThis.hostName, chainProxy, outbounds.proxies[0]);
+    const bestFragment = await buildXrayBestFragmentConfig(chainProxy, outbounds.proxies[0]);
     const workerLessConfigs = await buildXrayWorkerLessConfig();
     finalConfigs.push(bestFragment, ...workerLessConfigs);
   }
@@ -7353,329 +7358,6 @@ __name(getRoutingRules3, "getRoutingRules");
 
 // src/helpers/helpers.js
 var import_jszip = __toESM(require_jszip_min(), 1);
-function isValidUUID(uuid) {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(uuid);
-}
-__name(isValidUUID, "isValidUUID");
-async function handlePanel(request, env) {
-  switch (globalThis.pathName) {
-    case "/panel":
-      return await renderPanel(request, env);
-    case "/panel/settings":
-      return await getSettings(request, env);
-    case "/panel/update-settings":
-      return await updateSettings(request, env);
-    case "/panel/reset-settings":
-      return await resetSettings(request, env);
-    case "/panel/reset-password":
-      return await resetPassword(request, env);
-    case "/panel/my-ip":
-      return await getMyIP(request);
-    case "/panel/update-warp":
-      return await updateWarpConfigs(request, env);
-    case "/panel/get-warp-configs":
-      return await getWarpConfigs(request, env);
-    default:
-      return await fallback(request);
-  }
-}
-__name(handlePanel, "handlePanel");
-async function handleError(error) {
-  const html = hexToString(__ERROR_HTML_CONTENT__).replace("__ERROR_MESSAGE__", error.message);
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html" }
-  });
-}
-__name(handleError, "handleError");
-async function handleLogin(request, env) {
-  if (globalThis.pathName === "/login") return await renderLogin(request, env);
-  if (globalThis.pathName === "/login/authenticate") return await generateJWTToken(request, env);
-  return await fallback(request);
-}
-__name(handleLogin, "handleLogin");
-async function handleSubscriptions(request, env) {
-  const { proxySettings: settings } = await getDataset(request, env);
-  globalThis.settings = settings;
-  const { pathName, client, subPath } = globalThis;
-  switch (decodeURIComponent(pathName)) {
-    case `/sub/normal/${subPath}`:
-      return await getNormalConfigs(false);
-    case `/sub/full-normal/${subPath}`:
-      switch (client) {
-        case "sfa":
-          return await getSingBoxCustomConfig(env, false);
-        case "clash":
-          return await getClashNormalConfig(env);
-        case "xray":
-          return await getXrayCustomConfigs(env, false);
-        default:
-          break;
-      }
-    case `/sub/fragment/${subPath}`:
-      switch (client) {
-        case "sfa":
-          return await getSingBoxCustomConfig(env, true);
-        case "hiddify-frag":
-          return await getNormalConfigs(true);
-        default:
-          return await getXrayCustomConfigs(env, true);
-      }
-    case `/sub/warp/${subPath}`:
-      switch (client) {
-        case "clash":
-          return await getClashWarpConfig(request, env, false);
-        case "singbox":
-          return await getSingBoxWarpConfig(request, env);
-        case "hiddify":
-          return await getHiddifyWarpConfigs(false);
-        case "xray":
-          return await getXrayWarpConfigs(request, env, false);
-        default:
-          break;
-      }
-    case `/sub/warp-pro/${subPath}`:
-      switch (client) {
-        case "clash-pro":
-          return await getClashWarpConfig(request, env, true);
-        case "hiddify-pro":
-          return await getHiddifyWarpConfigs(true);
-        case "xray-knocker":
-        case "xray-pro":
-          return await getXrayWarpConfigs(request, env, true);
-        default:
-          break;
-      }
-    default:
-      return await fallback(request);
-  }
-}
-__name(handleSubscriptions, "handleSubscriptions");
-async function updateSettings(request, env) {
-  if (request.method === "POST") {
-    const auth = await Authenticate(request, env);
-    if (!auth) return await respond(false, 401, "Unauthorized or expired session.");
-    const proxySettings = await updateDataset(request, env);
-    return await respond(true, 200, null, proxySettings);
-  }
-  return await respond(false, 405, "Method not allowed.");
-}
-__name(updateSettings, "updateSettings");
-async function resetSettings(request, env) {
-  if (request.method === "POST") {
-    const auth = await Authenticate(request, env);
-    if (!auth) return await respond(false, 401, "Unauthorized or expired session.");
-    const proxySettings = await updateDataset(request, env);
-    return await respond(true, 200, null, proxySettings);
-  }
-  return await respond(false, 405, "Method not allowed!");
-}
-__name(resetSettings, "resetSettings");
-async function getSettings(request, env) {
-  try {
-    const isPassSet = await env.kv.get("pwd") ? true : false;
-    const auth = await Authenticate(request, env);
-    if (!auth) return await respond(false, 401, "Unauthorized or expired session.", { isPassSet });
-    const { proxySettings } = await getDataset(request, env);
-    const settings = {
-      proxySettings,
-      isPassSet,
-      subPath: globalThis.subPath
-    };
-    return await respond(true, 200, null, settings);
-  } catch (error) {
-    throw new Error(error);
-  }
-}
-__name(getSettings, "getSettings");
-async function fallback(request) {
-  const url = new URL(request.url);
-  url.hostname = globalThis.fallbackDomain;
-  url.protocol = "https:";
-  const newRequest = new Request(url.toString(), {
-    method: request.method,
-    headers: request.headers,
-    body: request.body,
-    redirect: "manual"
-  });
-  return await fetch(newRequest);
-}
-__name(fallback, "fallback");
-async function getMyIP(request) {
-  const ip = await request.text();
-  try {
-    const response = await fetch(`http://ip-api.com/json/${ip}?nocache=${Date.now()}`);
-    const geoLocation = await response.json();
-    return await respond(true, 200, null, geoLocation);
-  } catch (error) {
-    console.error("Error fetching IP address:", error);
-    return await respond(false, 500, `Error fetching IP address: ${error}`);
-  }
-}
-__name(getMyIP, "getMyIP");
-async function getWarpConfigs(request, env) {
-  const isPro = globalThis.client === "amnezia";
-  const auth = await Authenticate(request, env);
-  if (!auth) return new Response("Unauthorized or expired session.", { status: 401 });
-  const { warpConfigs, proxySettings } = await getDataset(request, env);
-  const warpConfig = extractWireguardParams(warpConfigs, false);
-  const { warpIPv6, publicKey, privateKey } = warpConfig;
-  const { warpEndpoints, amneziaNoiseCount, amneziaNoiseSizeMin, amneziaNoiseSizeMax } = proxySettings;
-  const zip = new import_jszip.default();
-  const trimLines = /* @__PURE__ */ __name((string) => string.split("\n").map((line) => line.trim()).join("\n"), "trimLines");
-  const amneziaNoise = isPro ? `Jc = ${amneziaNoiseCount}
-        Jmin = ${amneziaNoiseSizeMin}
-        Jmax = ${amneziaNoiseSizeMax}
-        S1 = 0
-        S2 = 0
-        H1 = 0
-        H2 = 0
-        H3 = 0
-        H4 = 0` : "";
-  try {
-    warpEndpoints.forEach((endpoint, index) => {
-      zip.file(`${atob("QlBC")}-Warp-${index + 1}.conf`, trimLines(
-        `[Interface]
-                PrivateKey = ${privateKey}
-                Address = 172.16.0.2/32, ${warpIPv6}
-                DNS = 1.1.1.1, 1.0.0.1
-                MTU = 1280
-                ${amneziaNoise}
-                [Peer]
-                PublicKey = ${publicKey}
-                AllowedIPs = 0.0.0.0/0, ::/0
-                Endpoint = ${endpoint}
-                PersistentKeepalive = 25`
-      ));
-    });
-    const zipBlob = await zip.generateAsync({ type: "blob" });
-    const arrayBuffer = await zipBlob.arrayBuffer();
-    return new Response(arrayBuffer, {
-      headers: {
-        "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${atob("QlBC")}-Warp-${isPro ? "Pro-" : ""}configs.zip"`
-      }
-    });
-  } catch (error) {
-    return new Response(`Error generating ZIP file: ${error}`, { status: 500 });
-  }
-}
-__name(getWarpConfigs, "getWarpConfigs");
-async function serveIcon() {
-  const faviconBase64 = __ICON__;
-  return new Response(Uint8Array.from(atob(faviconBase64), (c) => c.charCodeAt(0)), {
-    headers: {
-      "Content-Type": "image/x-icon",
-      "Cache-Control": "public, max-age=86400"
-    }
-  });
-}
-__name(serveIcon, "serveIcon");
-async function renderPanel(request, env) {
-  const pwd = await env.kv.get("pwd");
-  if (pwd) {
-    const auth = await Authenticate(request, env);
-    if (!auth) return Response.redirect(`${globalThis.urlOrigin}/login`, 302);
-  }
-  const html = hexToString(__PANEL_HTML_CONTENT__);
-  return new Response(html, {
-    headers: { "Content-Type": "text/html" }
-  });
-}
-__name(renderPanel, "renderPanel");
-async function renderLogin(request, env) {
-  const auth = await Authenticate(request, env);
-  if (auth) return Response.redirect(`${urlOrigin}/panel`, 302);
-  const html = hexToString(__LOGIN_HTML_CONTENT__);
-  return new Response(html, {
-    headers: { "Content-Type": "text/html" }
-  });
-}
-__name(renderLogin, "renderLogin");
-async function renderSecrets() {
-  const html = hexToString(__SECRETS_HTML_CONTENT__);
-  return new Response(html, {
-    headers: { "Content-Type": "text/html" }
-  });
-}
-__name(renderSecrets, "renderSecrets");
-async function updateWarpConfigs(request, env) {
-  if (request.method === "POST") {
-    const auth = await Authenticate(request, env);
-    if (!auth) return await respond(false, 401, "Unauthorized.");
-    try {
-      await fetchWarpConfigs(env);
-      return await respond(true, 200, "Warp configs updated successfully!");
-    } catch (error) {
-      console.log(error);
-      return await respond(false, 500, `An error occurred while updating Warp configs: ${error}`);
-    }
-  }
-  return await respond(false, 405, "Method not allowd.");
-}
-__name(updateWarpConfigs, "updateWarpConfigs");
-async function respond(success, status, message2, body, customHeaders) {
-  return new Response(JSON.stringify({
-    success,
-    status,
-    message: message2 || "",
-    body: body || ""
-  }), {
-    headers: customHeaders || {
-      "Content-Type": message2 ? "text/plain" : "application/json"
-    }
-  });
-}
-__name(respond, "respond");
-function hexToString(hex) {
-  const bytes = new Uint8Array(hex.match(/.{1,2}/g).map((b) => parseInt(b, 16)));
-  const decoder2 = new TextDecoder();
-  return decoder2.decode(bytes);
-}
-__name(hexToString, "hexToString");
-
-// src/helpers/init.js
-function init(request, env, upgradeHeader) {
-  const url = new URL(request.url);
-  const searchParams = new URLSearchParams(url.search);
-  if (upgradeHeader === "websocket") {
-    const encodedPathConfig = url.pathname.replace("/", "") || "";
-    const parseIPs = /* @__PURE__ */ __name((value) => value ? value.split(",").map((val) => val.trim()).filter(Boolean) : void 0, "parseIPs");
-    try {
-      const { protocol, mode, panelIPs } = JSON.parse(atob(encodedPathConfig));
-      globalThis.wsProtocol = protocol;
-      globalThis.proxyMode = mode;
-      globalThis.panelIPs = panelIPs;
-      globalThis.proxyIPs = parseIPs(env.PROXY_IP) || [atob("YnBiLnlvdXNlZi5pc2VnYXJvLmNvbQ==")];
-      globalThis.prefixes = parseIPs(env.PREFIX) || [
-        atob("WzJhMDI6ODk4OjE0Njo2NDo6XQ=="),
-        atob("WzI2MDI6ZmM1OTpiMDo2NDo6XQ=="),
-        atob("WzI2MDI6ZmM1OToxMTo2NDo6XQ==")
-      ];
-    } catch (error) {
-      return new Response("Failed to parse WebSocket path config", { status: 400 });
-    }
-  }
-  globalThis.panelVersion = __VERSION__;
-  globalThis.defaultHttpPorts = [80, 8080, 2052, 2082, 2086, 2095, 8880];
-  globalThis.defaultHttpsPorts = [443, 8443, 2053, 2083, 2087, 2096];
-  globalThis.userID = env.UUID;
-  globalThis.TRPassword = env.TR_PASS;
-  globalThis.hostName = request.headers.get("Host");
-  globalThis.pathName = url.pathname;
-  globalThis.client = searchParams.get("app");
-  globalThis.urlOrigin = url.origin;
-  globalThis.dohURL = env.DOH_URL || "https://cloudflare-dns.com/dns-query";
-  globalThis.fallbackDomain = env.FALLBACK || "speed.cloudflare.com";
-  globalThis.subPath = env.SUB_PATH || globalThis.userID;
-  if (!["/secrets", "/favicon.ico"].includes(globalThis.pathName)) {
-    if (!globalThis.userID || !globalThis.TRPassword) throw new Error(`Please set UUID and ${atob("VHJvamFu")} password first. Please visit <a href="${globalThis.urlOrigin}/secrets" target="_blank">here</a> to generate them.`, { cause: "init" });
-    if (!isValidUUID(globalThis.userID)) throw new Error(`Invalid UUID: ${globalThis.userID}`, { cause: "init" });
-    if (typeof env.kv !== "object") throw new Error("KV Dataset is not properly set! Please refer to tutorials.", { cause: "init" });
-  }
-}
-__name(init, "init");
 
 // src/protocols/common.js
 import { connect } from "cloudflare:sockets";
@@ -7697,12 +7379,14 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
   __name(connectAndWrite, "connectAndWrite");
   async function retry() {
     let tcpSocket;
-    const mode = globalThis.proxyMode;
+    const { proxyMode, panelIPs } = wsConfig;
     const getRandomValue = /* @__PURE__ */ __name((arr) => arr[Math.floor(Math.random() * arr.length)], "getRandomValue");
-    if (mode === "proxyip") {
+    const parseIPs = /* @__PURE__ */ __name((value) => value ? value.split(",").map((val) => val.trim()).filter(Boolean) : void 0, "parseIPs");
+    if (proxyMode === "proxyip") {
       log(`direct connection failed, trying to use Proxy IP for ${addressRemote}`);
       try {
-        const ips = globalThis.panelIPs.length ? globalThis.panelIPs : globalThis.proxyIPs;
+        const proxyIPs = parseIPs(wsConfig.envProxyIPs) || wsConfig.defaultProxyIPs;
+        const ips = panelIPs.length ? panelIPs : proxyIPs;
         const proxyIP = getRandomValue(ips);
         const { host, port } = parseHostPort(proxyIP);
         tcpSocket = await connectAndWrite(host || addressRemote, port || portRemote);
@@ -7710,10 +7394,11 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
         console.error("Proxy IP connection failed:", error);
         webSocket.close(1011, "Proxy IP connection failed: " + error.message);
       }
-    } else if (mode === "prefix") {
+    } else if (proxyMode === "prefix") {
       log(`direct connection failed, trying to generate dynamic prefix for ${addressRemote}`);
       try {
-        const ips = globalThis.panelIPs.length ? globalThis.panelIPs : globalThis.prefixes;
+        const prefixes = parseIPs(wsConfig.envPrefixes) || wsConfig.defaultPrefixes;
+        const ips = panelIPs.length ? panelIPs : prefixes;
         const prefix = getRandomValue(ips);
         const dynamicProxyIP = await getDynamicProxyIP(addressRemote, prefix);
         tcpSocket = await connectAndWrite(dynamicProxyIP, portRemote);
@@ -7911,7 +7596,7 @@ async function VlOverWSHandler(request) {
           rawDataIndex,
           VLVersion = new Uint8Array([0, 0]),
           isUDP
-        } = processVLHeader(chunk, globalThis.userID);
+        } = processVLHeader(chunk, globalConfig.userID);
         address = addressRemote;
         portWithRandomLog = `${portRemote}--${Math.random()} ${isUDP ? "udp " : "tcp "} `;
         if (hasError) {
@@ -8075,7 +7760,7 @@ async function handleUDPOutBound(webSocket, VLResponseHeader, log) {
     new WritableStream({
       async write(chunk) {
         const resp = await fetch(
-          dohURL,
+          globalConfig.dohURL,
           // dns server url
           {
             method: "POST",
@@ -8194,7 +7879,7 @@ function parseTRHeader(buffer) {
     };
   }
   const password = new TextDecoder().decode(buffer.slice(0, crLfIndex));
-  if (password !== (0, import_js_sha256.sha224)(globalThis.TRPassword)) {
+  if (password !== (0, import_js_sha256.sha224)(globalConfig.TrPass)) {
     return {
       hasError: true,
       message: "invalid password"
@@ -8263,25 +7948,382 @@ function parseTRHeader(buffer) {
 }
 __name(parseTRHeader, "parseTRHeader");
 
+// src/helpers/helpers.js
+async function handleWebsocket(request) {
+  const encodedPathConfig = globalConfig.pathName.replace("/", "") || "";
+  try {
+    const { protocol, mode, panelIPs } = JSON.parse(atob(encodedPathConfig));
+    Object.assign(wsConfig, {
+      wsProtocol: protocol,
+      proxyMode: mode,
+      panelIPs
+    });
+    switch (protocol) {
+      case "vl":
+        return await VlOverWSHandler(request);
+      case "tr":
+        return await TrOverWSHandler(request);
+      default:
+        return await fallback(request);
+    }
+  } catch (error) {
+    return new Response("Failed to parse WebSocket path config", { status: 400 });
+  }
+}
+__name(handleWebsocket, "handleWebsocket");
+async function handlePanel(request, env) {
+  switch (globalConfig.pathName) {
+    case "/panel":
+      return await renderPanel(request, env);
+    case "/panel/settings":
+      return await getSettings(request, env);
+    case "/panel/update-settings":
+      return await updateSettings(request, env);
+    case "/panel/reset-settings":
+      return await resetSettings(request, env);
+    case "/panel/reset-password":
+      return await resetPassword(request, env);
+    case "/panel/my-ip":
+      return await getMyIP(request);
+    case "/panel/update-warp":
+      return await updateWarpConfigs(request, env);
+    case "/panel/get-warp-configs":
+      return await getWarpConfigs(request, env);
+    default:
+      return await fallback(request);
+  }
+}
+__name(handlePanel, "handlePanel");
+async function handleError(error) {
+  const html = hexToString(__ERROR_HTML_CONTENT__).replace("__ERROR_MESSAGE__", error.message);
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html" }
+  });
+}
+__name(handleError, "handleError");
+async function handleLogin(request, env) {
+  if (globalConfig.pathName === "/login") return await renderLogin(request, env);
+  if (globalConfig.pathName === "/login/authenticate") return await generateJWTToken(request, env);
+  return await fallback(request);
+}
+__name(handleLogin, "handleLogin");
+async function handleSubscriptions(request, env) {
+  const { proxySettings } = await getDataset(request, env);
+  globalThis.settings = proxySettings;
+  const { client, subPath } = httpConfig;
+  switch (decodeURIComponent(globalConfig.pathName)) {
+    case `/sub/normal/${subPath}`:
+      return await getNormalConfigs(false);
+    case `/sub/full-normal/${subPath}`:
+      switch (client) {
+        case "sfa":
+          return await getSingBoxCustomConfig(env, false);
+        case "clash":
+          return await getClashNormalConfig(env);
+        case "xray":
+          return await getXrayCustomConfigs(env, false);
+        default:
+          break;
+      }
+    case `/sub/fragment/${subPath}`:
+      switch (client) {
+        case "sfa":
+          return await getSingBoxCustomConfig(env, true);
+        case "hiddify-frag":
+          return await getNormalConfigs(true);
+        default:
+          return await getXrayCustomConfigs(env, true);
+      }
+    case `/sub/warp/${subPath}`:
+      switch (client) {
+        case "clash":
+          return await getClashWarpConfig(request, env, false);
+        case "singbox":
+          return await getSingBoxWarpConfig(request, env);
+        case "hiddify":
+          return await getHiddifyWarpConfigs(false);
+        case "xray":
+          return await getXrayWarpConfigs(request, env, false);
+        default:
+          break;
+      }
+    case `/sub/warp-pro/${subPath}`:
+      switch (client) {
+        case "clash-pro":
+          return await getClashWarpConfig(request, env, true);
+        case "hiddify-pro":
+          return await getHiddifyWarpConfigs(true);
+        case "xray-knocker":
+        case "xray-pro":
+          return await getXrayWarpConfigs(request, env, true);
+        default:
+          break;
+      }
+    default:
+      return await fallback(request);
+  }
+}
+__name(handleSubscriptions, "handleSubscriptions");
+async function updateSettings(request, env) {
+  if (request.method === "POST") {
+    const auth = await Authenticate(request, env);
+    if (!auth) return await respond(false, 401, "Unauthorized or expired session.");
+    const proxySettings = await updateDataset(request, env);
+    return await respond(true, 200, null, proxySettings);
+  }
+  return await respond(false, 405, "Method not allowed.");
+}
+__name(updateSettings, "updateSettings");
+async function resetSettings(request, env) {
+  if (request.method === "POST") {
+    const auth = await Authenticate(request, env);
+    if (!auth) return await respond(false, 401, "Unauthorized or expired session.");
+    const proxySettings = await updateDataset(request, env);
+    return await respond(true, 200, null, proxySettings);
+  }
+  return await respond(false, 405, "Method not allowed!");
+}
+__name(resetSettings, "resetSettings");
+async function getSettings(request, env) {
+  try {
+    const isPassSet = await env.kv.get("pwd") ? true : false;
+    const auth = await Authenticate(request, env);
+    if (!auth) return await respond(false, 401, "Unauthorized or expired session.", { isPassSet });
+    const { proxySettings } = await getDataset(request, env);
+    const settings = {
+      proxySettings,
+      isPassSet,
+      subPath: httpConfig.subPath
+    };
+    return await respond(true, 200, null, settings);
+  } catch (error) {
+    throw new Error(error);
+  }
+}
+__name(getSettings, "getSettings");
+async function fallback(request) {
+  const url = new URL(request.url);
+  url.hostname = globalConfig.fallbackDomain;
+  url.protocol = "https:";
+  const newRequest = new Request(url.toString(), {
+    method: request.method,
+    headers: request.headers,
+    body: request.body,
+    redirect: "manual"
+  });
+  return await fetch(newRequest);
+}
+__name(fallback, "fallback");
+async function getMyIP(request) {
+  const ip = await request.text();
+  try {
+    const response = await fetch(`http://ip-api.com/json/${ip}?nocache=${Date.now()}`);
+    const geoLocation = await response.json();
+    return await respond(true, 200, null, geoLocation);
+  } catch (error) {
+    console.error("Error fetching IP address:", error);
+    return await respond(false, 500, `Error fetching IP address: ${error}`);
+  }
+}
+__name(getMyIP, "getMyIP");
+async function getWarpConfigs(request, env) {
+  const isPro = httpConfig.client === "amnezia";
+  const auth = await Authenticate(request, env);
+  if (!auth) return new Response("Unauthorized or expired session.", { status: 401 });
+  const { warpConfigs, proxySettings } = await getDataset(request, env);
+  const warpConfig = extractWireguardParams(warpConfigs, false);
+  const { warpIPv6, publicKey, privateKey } = warpConfig;
+  const { warpEndpoints, amneziaNoiseCount, amneziaNoiseSizeMin, amneziaNoiseSizeMax } = proxySettings;
+  const zip = new import_jszip.default();
+  const trimLines = /* @__PURE__ */ __name((string) => string.split("\n").map((line) => line.trim()).join("\n"), "trimLines");
+  const amneziaNoise = isPro ? `Jc = ${amneziaNoiseCount}
+        Jmin = ${amneziaNoiseSizeMin}
+        Jmax = ${amneziaNoiseSizeMax}
+        S1 = 0
+        S2 = 0
+        H1 = 0
+        H2 = 0
+        H3 = 0
+        H4 = 0` : "";
+  try {
+    warpEndpoints.forEach((endpoint, index) => {
+      zip.file(`${atob("QlBC")}-Warp-${index + 1}.conf`, trimLines(
+        `[Interface]
+                PrivateKey = ${privateKey}
+                Address = 172.16.0.2/32, ${warpIPv6}
+                DNS = 1.1.1.1, 1.0.0.1
+                MTU = 1280
+                ${amneziaNoise}
+                [Peer]
+                PublicKey = ${publicKey}
+                AllowedIPs = 0.0.0.0/0, ::/0
+                Endpoint = ${endpoint}
+                PersistentKeepalive = 25`
+      ));
+    });
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const arrayBuffer = await zipBlob.arrayBuffer();
+    return new Response(arrayBuffer, {
+      headers: {
+        "Content-Type": "application/zip",
+        "Content-Disposition": `attachment; filename="${atob("QlBC")}-Warp-${isPro ? "Pro-" : ""}configs.zip"`
+      }
+    });
+  } catch (error) {
+    return new Response(`Error generating ZIP file: ${error}`, { status: 500 });
+  }
+}
+__name(getWarpConfigs, "getWarpConfigs");
+async function serveIcon() {
+  const faviconBase64 = __ICON__;
+  return new Response(Uint8Array.from(atob(faviconBase64), (c) => c.charCodeAt(0)), {
+    headers: {
+      "Content-Type": "image/x-icon",
+      "Cache-Control": "public, max-age=86400"
+    }
+  });
+}
+__name(serveIcon, "serveIcon");
+async function renderPanel(request, env) {
+  const pwd = await env.kv.get("pwd");
+  if (pwd) {
+    const auth = await Authenticate(request, env);
+    if (!auth) return Response.redirect(`${httpConfig.urlOrigin}/login`, 302);
+  }
+  const html = hexToString(__PANEL_HTML_CONTENT__);
+  return new Response(html, {
+    headers: { "Content-Type": "text/html" }
+  });
+}
+__name(renderPanel, "renderPanel");
+async function renderLogin(request, env) {
+  const auth = await Authenticate(request, env);
+  if (auth) return Response.redirect(`${httpConfig.urlOrigin}/panel`, 302);
+  const html = hexToString(__LOGIN_HTML_CONTENT__);
+  return new Response(html, {
+    headers: { "Content-Type": "text/html" }
+  });
+}
+__name(renderLogin, "renderLogin");
+async function renderSecrets() {
+  const html = hexToString(__SECRETS_HTML_CONTENT__);
+  return new Response(html, {
+    headers: { "Content-Type": "text/html" }
+  });
+}
+__name(renderSecrets, "renderSecrets");
+async function updateWarpConfigs(request, env) {
+  if (request.method === "POST") {
+    const auth = await Authenticate(request, env);
+    if (!auth) return await respond(false, 401, "Unauthorized.");
+    try {
+      await fetchWarpConfigs(env);
+      return await respond(true, 200, "Warp configs updated successfully!");
+    } catch (error) {
+      console.log(error);
+      return await respond(false, 500, `An error occurred while updating Warp configs: ${error}`);
+    }
+  }
+  return await respond(false, 405, "Method not allowd.");
+}
+__name(updateWarpConfigs, "updateWarpConfigs");
+async function respond(success, status, message2, body, customHeaders) {
+  return new Response(JSON.stringify({
+    success,
+    status,
+    message: message2 || "",
+    body: body || ""
+  }), {
+    headers: customHeaders || {
+      "Content-Type": message2 ? "text/plain" : "application/json"
+    }
+  });
+}
+__name(respond, "respond");
+function hexToString(hex) {
+  const bytes = new Uint8Array(hex.match(/.{1,2}/g).map((b) => parseInt(b, 16)));
+  const decoder2 = new TextDecoder();
+  return decoder2.decode(bytes);
+}
+__name(hexToString, "hexToString");
+function isValidUUID(uuid) {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
+__name(isValidUUID, "isValidUUID");
+
+// src/helpers/init.js
+var globalConfig = {};
+var httpConfig = {};
+var wsConfig = {};
+function init(request, env) {
+  const { pathname } = new URL(request.url);
+  const { UUID, TR_PASS, FALLBACK, DOH_URL } = env;
+  Object.assign(globalConfig, {
+    userID: UUID,
+    TrPass: TR_PASS,
+    pathName: pathname,
+    fallbackDomain: FALLBACK || "speed.cloudflare.com",
+    dohURL: DOH_URL || "https://cloudflare-dns.com/dns-query"
+  });
+}
+__name(init, "init");
+function initWs(env) {
+  Object.assign(wsConfig, {
+    defaultProxyIPs: [atob("YnBiLnlvdXNlZi5pc2VnYXJvLmNvbQ==")],
+    defaultPrefixes: [
+      "WzJhMDI6ODk4OjE0Njo2NDo6XQ==",
+      "WzI2MDI6ZmM1OTpiMDo2NDo6XQ==",
+      "WzI2MDI6ZmM1OToxMTo2NDo6XQ=="
+    ].map(atob),
+    envProxyIPs: env.PROXY_IP,
+    envPrefixes: env.PREFIX
+  });
+}
+__name(initWs, "initWs");
+function initHttp(request, env) {
+  const { pathname, origin, search } = new URL(request.url);
+  const { SUB_PATH, kv } = env;
+  const { userID, TrPass } = globalConfig;
+  const searchParams = new URLSearchParams(search);
+  if (!["/secrets", "/favicon.ico"].includes(pathname)) {
+    if (!userID || !TrPass) throw new Error(`Please set UUID and ${atob("VHJvamFu")} password first. Please visit <a href="${origin}/secrets" target="_blank">here</a> to generate them.`, { cause: "init" });
+    if (!isValidUUID(userID)) throw new Error(`Invalid UUID: ${userID}`, { cause: "init" });
+    if (typeof kv !== "object") throw new Error(`KV Dataset is not properly set! Please refer to <a href="${atob("aHR0cHM6Ly9iaWEtcGFpbi1iYWNoZS5naXRodWIuaW8vQlBCLVdvcmtlci1QYW5lbC8=")}" target="_blank">tutorials</a>.`, { cause: "init" });
+  }
+  Object.assign(httpConfig, {
+    panelVersion: __VERSION__,
+    defaultHttpPorts: [80, 8080, 2052, 2082, 2086, 2095, 8880],
+    defaultHttpsPorts: [443, 8443, 2053, 2083, 2087, 2096],
+    hostName: request.headers.get("Host"),
+    client: searchParams.get("app"),
+    urlOrigin: origin,
+    subPath: SUB_PATH || userID
+  });
+}
+__name(initHttp, "initHttp");
+
 // src/worker.js
 var worker_default = {
   async fetch(request, env) {
     try {
       const upgradeHeader = request.headers.get("Upgrade");
-      init(request, env, upgradeHeader);
-      const path = globalThis.pathName;
+      init(request, env);
       if (upgradeHeader === "websocket") {
-        if (globalThis.wsProtocol === "vl") return await VlOverWSHandler(request);
-        if (globalThis.wsProtocol === "tr") return await TrOverWSHandler(request);
+        initWs(env);
+        return await handleWebsocket(request);
       } else {
+        initHttp(request, env);
+        const path = globalConfig.pathName;
         if (path.startsWith("/panel")) return await handlePanel(request, env);
         if (path.startsWith("/sub")) return await handleSubscriptions(request, env);
         if (path.startsWith("/login")) return await handleLogin(request, env);
         if (path.startsWith("/logout")) return await logout(request, env);
         if (path.startsWith("/secrets")) return await renderSecrets();
         if (path.startsWith("/favicon.ico")) return await serveIcon();
+        return await fallback(request);
       }
-      return await fallback(request);
     } catch (error) {
       return await handleError(error);
     }
