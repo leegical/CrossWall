@@ -4249,6 +4249,7 @@ async function updateDataset(request, env) {
     TRConfigs: populateField("TRConfigs", true),
     ports: populateField("ports", [443]),
     fingerprint: populateField("fingerprint", "chrome"),
+    fragmentMode: populateField("fragmentMode", "custom"),
     fragmentLengthMin: populateField("fragmentLengthMin", 100),
     fragmentLengthMax: populateField("fragmentLengthMax", 200),
     fragmentIntervalMin: populateField("fragmentIntervalMin", 1),
@@ -5994,7 +5995,7 @@ async function buildXrayDNS(outboundAddrs, domainToStaticIPs, isWorkerLess, isWa
   const dnsObject = {
     ...hosts,
     servers: [],
-    queryStrategy: isIPv62 ? "UseIP" : "UseIPv4",
+    queryStrategy: !isWarp || isIPv62 ? "UseIP" : "UseIPv4",
     tag: "dns"
   };
   let skipFallback = true;
@@ -6088,25 +6089,26 @@ function buildXrayRoutingRules(isChain, isBalancer, isWorkerLess, isWarp) {
       type: "field"
     }
   ];
-  const addRoutingRule = /* @__PURE__ */ __name((inboundTag, domain, ip, port, network2, outboundTag, isBalancer2) => rules.push({
+  const addRoutingRule = /* @__PURE__ */ __name((inboundTag, domain, ip, port, network2, protocol, outboundTag, isBalancer2) => rules.push({
     ...inboundTag && { inboundTag },
     ...domain && { domain },
     ...ip && { ip },
     ...port && { port },
     ...network2 && { network: network2 },
+    ...protocol && { protocol: [protocol] },
     ...isBalancer2 ? { balancerTag: outboundTag } : { outboundTag },
     type: "field"
   }), "addRoutingRule");
-  const finallOutboundTag = isChain ? "chain" : "proxy";
+  const finallOutboundTag = isChain ? "chain" : isWorkerLess ? "direct" : "proxy";
   const outTag = isBalancer ? "all" : finallOutboundTag;
-  addRoutingRule(["remote-dns"], null, null, null, null, outTag, isBalancer);
-  addRoutingRule(["dns"], null, null, null, null, "direct");
+  addRoutingRule(["remote-dns"], null, null, null, null, null, outTag, isBalancer);
+  addRoutingRule(["dns"], null, null, null, null, null, "direct");
   if (settings.bypassLAN) {
-    addRoutingRule(null, ["geosite:private"], null, null, null, "direct");
-    addRoutingRule(null, null, ["geoip:private"], null, null, "direct");
+    addRoutingRule(null, ["geosite:private"], null, null, null, null, "direct");
+    addRoutingRule(null, null, ["geoip:private"], null, null, null, "direct");
   }
   if (isWarp && settings.blockUDP443) {
-    addRoutingRule(null, null, null, 443, "udp", "block");
+    addRoutingRule(null, null, null, 443, "udp", null, "block");
   }
   const routingRules = getRoutingRules3();
   const bypassRules = [
@@ -6140,14 +6142,20 @@ function buildXrayRoutingRules(isChain, isBalancer, isWorkerLess, isWarp) {
   }
   for (const [type, rule] of groupedRules) {
     const { domain, ip } = rule;
-    if (domain.length) addRoutingRule(null, domain, null, null, null, type, null);
-    if (ip.length) addRoutingRule(null, null, ip, null, null, type, null);
+    if (domain.length) addRoutingRule(null, domain, null, null, null, null, type, null);
+    if (ip.length) addRoutingRule(null, null, ip, null, null, null, type, null);
+  }
+  if (isWorkerLess) {
+    addRoutingRule(null, null, null, null, "tcp", "tls", "proxy");
+    addRoutingRule(null, null, null, null, "tcp", "http", "http-fragment");
+    addRoutingRule(null, null, null, null, "udp", "quic", "udp-noise");
+    addRoutingRule(null, null, null, "443,2053,2083,2087,2096,8443", "udp", null, "udp-noise");
   }
   if (!isWarp && !isWorkerLess) {
-    addRoutingRule(null, null, null, null, "udp", "block", null);
+    addRoutingRule(null, null, null, null, "udp", null, "block", null);
   }
   const network = isWarp || isWorkerLess ? "tcp,udp" : "tcp";
-  addRoutingRule(null, null, null, null, network, outTag, isBalancer);
+  addRoutingRule(null, null, null, null, network, null, outTag, isBalancer);
   return rules;
 }
 __name(buildXrayRoutingRules, "buildXrayRoutingRules");
@@ -6256,7 +6264,7 @@ function buildXrayTROutbound(tag2, address, port, host, sni, isFragment, allowIn
   return outbound;
 }
 __name(buildXrayTROutbound, "buildXrayTROutbound");
-function buildXrayWarpOutbound(warpConfigs, endpoint, isWoW) {
+function buildXrayWarpOutbound(warpConfigs, endpoint, isWoW, isPro) {
   const {
     warpIPv6,
     reserved,
@@ -6285,14 +6293,13 @@ function buildXrayWarpOutbound(warpConfigs, endpoint, isWoW) {
   };
   let chain = "";
   if (isWoW) chain = "proxy";
-  if (!isWoW && httpConfig.client === "xray") chain = "udp-noise";
+  if (!isWoW && isPro && httpConfig.client === "xray") chain = "udp-noise";
   if (chain) outbound.streamSettings = {
     sockopt: {
       dialerProxy: chain
     }
   };
   if (httpConfig.client === "xray-knocker" && !isWoW) {
-    delete outbound.streamSettings;
     const {
       knockerNoiseMode,
       noiseCountMin,
@@ -6516,15 +6523,14 @@ async function buildXrayConfig(remark, isBalancer, isChain, balancerFallback, is
   const config = structuredClone(xrayConfigTemp);
   config.remarks = remark;
   config.dns = await buildXrayDNS(outboundAddrs, domainToStaticIPs, isWorkerLess, isWarp, customDns, customDnsHosts);
-  const isFakeDNS = settings.VLTRFakeDNS && !isWarp || settings.warpFakeDNS && isWarp;
-  if (isFakeDNS) {
-    config.inbounds[0].sniffing.destOverride.push("fakedns");
-  }
-  if (isWarp && httpConfig.client === "xray") {
-    const udpNoiseOutbound = buildFreedomOutbound(false, true, "udp-noise");
-    config.outbounds.unshift(udpNoiseOutbound);
-  }
   config.routing.rules = buildXrayRoutingRules(isChain, isBalancer, isWorkerLess, isWarp);
+  const destOverride = config.inbounds[0].sniffing.destOverride;
+  if (settings.VLTRFakeDNS && !isWarp || settings.warpFakeDNS && isWarp) {
+    destOverride.push("fakedns");
+  }
+  if (isWorkerLess) {
+    destOverride.push("quic");
+  }
   if (isBalancer) {
     config.routing.balancers = [
       {
@@ -6612,9 +6618,17 @@ __name(buildXrayBestFragmentConfig, "buildXrayBestFragmentConfig");
 async function buildXrayWorkerLessConfig() {
   const cfDnsConfig = await buildXrayConfig(`\u{1F4A6} ${atob("QlBC")} F - WorkerLess - 1 \u2B50`, false, false, false, false, true, [], false, "cloudflare-dns.com", ["cloudflare.com"]);
   const googleDnsConfig = await buildXrayConfig(`\u{1F4A6} ${atob("QlBC")} F - WorkerLess - 2 \u2B50`, false, false, false, false, true, [], false, "dns.google", ["8.8.8.8", "8.8.4.4"]);
-  const fragmentOutbound = buildFreedomOutbound(true, true, "proxy");
-  cfDnsConfig.outbounds.unshift(fragmentOutbound);
-  googleDnsConfig.outbounds.unshift(fragmentOutbound);
+  const tlsFragment = buildFreedomOutbound(true, false, "proxy");
+  const udpNoise = buildFreedomOutbound(false, true, "udp-noise");
+  const httpFragment = buildFreedomOutbound(true, false, "http-fragment");
+  httpFragment.settings.fragment.packets = "1-1";
+  const outbounds = [
+    tlsFragment,
+    httpFragment,
+    udpNoise
+  ];
+  cfDnsConfig.outbounds.unshift(...outbounds);
+  googleDnsConfig.outbounds.unshift(...outbounds);
   return [cfDnsConfig, googleDnsConfig];
 }
 __name(buildXrayWorkerLessConfig, "buildXrayWorkerLessConfig");
@@ -6693,21 +6707,29 @@ async function getXrayCustomConfigs(env, isFragment) {
   });
 }
 __name(getXrayCustomConfigs, "getXrayCustomConfigs");
-async function getXrayWarpConfigs(request, env, isPro) {
+async function getXrayWarpConfigs(request, env, isPro, isKnocker) {
   const { warpConfigs } = await getDataset(request, env);
   const proIndicator = isPro ? " Pro " : " ";
   const xrayWarpConfigs = [];
   const xrayWoWConfigs = [];
+  let udpNoiseOutbound = {};
   const outbounds = {
     proxies: [],
     chains: []
   };
+  if (isPro && !isKnocker) {
+    udpNoiseOutbound = buildFreedomOutbound(false, true, "udp-noise");
+  }
   for (const [index, endpoint] of settings.warpEndpoints.entries()) {
     const endpointHost = endpoint.split(":")[0];
     const warpConfig = await buildXrayConfig(`\u{1F4A6} ${index + 1} - Warp${proIndicator}\u{1F1EE}\u{1F1F7}`, false, false, false, true, false, [endpointHost], null);
     const WoWConfig = await buildXrayConfig(`\u{1F4A6} ${index + 1} - WoW${proIndicator}\u{1F30D}`, false, true, false, true, false, [endpointHost], null);
-    const warpOutbound = buildXrayWarpOutbound(warpConfigs, endpoint, false);
-    const WoWOutbound = buildXrayWarpOutbound(warpConfigs, endpoint, true);
+    if (isPro && !isKnocker) {
+      warpConfig.outbounds.push(udpNoiseOutbound);
+      WoWConfig.outbounds.push(udpNoiseOutbound);
+    }
+    const warpOutbound = buildXrayWarpOutbound(warpConfigs, endpoint, false, isPro);
+    const WoWOutbound = buildXrayWarpOutbound(warpConfigs, endpoint, true, isPro);
     warpConfig.outbounds.unshift(structuredClone(warpOutbound));
     WoWConfig.outbounds.unshift(structuredClone(WoWOutbound), structuredClone(warpOutbound));
     xrayWarpConfigs.push(warpConfig);
@@ -6723,10 +6745,19 @@ async function getXrayWarpConfigs(request, env, isPro) {
   const totalOutbounds = [...outbounds.chains, ...outbounds.proxies];
   const outboundDomains = settings.warpEndpoints.map((endpoint) => endpoint.split(":")[0]).filter((address) => isDomain(address));
   const xrayWarpBestPing = await buildXrayConfig(`\u{1F4A6} Warp${proIndicator}- Best Ping \u{1F680}`, true, false, false, true, false, outboundDomains, null);
-  xrayWarpBestPing.outbounds.unshift(...outbounds.proxies);
   const xrayWoWBestPing = await buildXrayConfig(`\u{1F4A6} WoW${proIndicator}- Best Ping \u{1F680}`, true, true, false, true, false, outboundDomains, null);
+  if (isPro && !isKnocker) {
+    xrayWarpBestPing.outbounds.push(udpNoiseOutbound);
+    xrayWoWBestPing.outbounds.push(udpNoiseOutbound);
+  }
+  xrayWarpBestPing.outbounds.unshift(...outbounds.proxies);
   xrayWoWBestPing.outbounds.unshift(...totalOutbounds);
-  const configs = [...xrayWarpConfigs, ...xrayWoWConfigs, xrayWarpBestPing, xrayWoWBestPing];
+  const configs = [
+    ...xrayWarpConfigs,
+    ...xrayWoWConfigs,
+    xrayWarpBestPing,
+    xrayWoWBestPing
+  ];
   return new Response(JSON.stringify(configs, null, 4), {
     status: 200,
     headers: {
@@ -7656,42 +7687,43 @@ async function handleSubscriptions(request, env) {
   switch (path) {
     case `/sub/normal/${subPath}`:
       switch (client) {
+        case "xray":
+          return await getXrayCustomConfigs(env, false);
         case "sing-box":
           return await getSingBoxCustomConfig(env, false);
         case "clash":
           return await getClashNormalConfig(env);
-        case "xray":
-          return await getXrayCustomConfigs(env, false);
         default:
           break;
       }
     case `/sub/fragment/${subPath}`:
       switch (client) {
-        case "sing-box":
-          return await getSingBoxCustomConfig(env, true);
         case "xray":
           return await getXrayCustomConfigs(env, true);
+        case "sing-box":
+          return await getSingBoxCustomConfig(env, true);
         default:
           break;
       }
     case `/sub/warp/${subPath}`:
       switch (client) {
-        case "clash":
-          return await getClashWarpConfig(request, env, false);
+        case "xray":
+          return await getXrayWarpConfigs(request, env, false, false);
         case "sing-box":
           return await getSingBoxWarpConfig(request, env);
-        case "xray":
-          return await getXrayWarpConfigs(request, env, false);
+        case "clash":
+          return await getClashWarpConfig(request, env, false);
         default:
           break;
       }
     case `/sub/warp-pro/${subPath}`:
       switch (client) {
+        case "xray":
+          return await getXrayWarpConfigs(request, env, true, false);
+        case "xray-knocker":
+          return await getXrayWarpConfigs(request, env, true, true);
         case "clash":
           return await getClashWarpConfig(request, env, true);
-        case "xray-knocker":
-        case "xray":
-          return await getXrayWarpConfigs(request, env, true);
         default:
           break;
       }
