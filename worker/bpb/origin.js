@@ -4311,29 +4311,42 @@ async function updateDataset(request, env) {
 }
 __name(updateDataset, "updateDataset");
 function extractChainProxyParams(chainProxy) {
-  let configParams = {};
   if (!chainProxy) return {};
   const url = new URL(chainProxy);
   const protocol = url.protocol.slice(0, -1);
-  if (protocol === atob("dmxlc3M=")) {
+  let configParams = {
+    protocol: protocol === "ss" ? atob("c2hhZG93c29ja3M=") : protocol,
+    server: url.hostname,
+    port: +url.port
+  };
+  const parseParams = /* @__PURE__ */ __name(() => {
     const params = new URLSearchParams(url.search);
-    configParams = {
-      protocol,
-      uuid: url.username,
-      server: url.hostname,
-      port: url.port
-    };
-    params.forEach((value, key) => {
+    for (const [key, value] of params.entries()) {
       configParams[key] = value;
-    });
-  } else {
-    configParams = {
-      protocol,
-      user: url.username,
-      pass: url.password,
-      server: url.host,
-      port: url.port
-    };
+    }
+  }, "parseParams");
+  switch (protocol) {
+    case atob("dmxlc3M="):
+      configParams.uuid = url.username;
+      parseParams();
+      break;
+    case atob("dHJvamFu"):
+      configParams.password = url.username;
+      parseParams();
+      break;
+    case "ss":
+      const auth = new TextDecoder().decode(Uint8Array.from(atob(url.username), (c) => c.charCodeAt(0)));
+      const [first, ...rest] = auth.split(":");
+      configParams.method = first;
+      configParams.password = rest.join(":");
+      break;
+    case "socks":
+    case "http":
+      configParams.user = url.username;
+      configParams.pass = url.password;
+      break;
+    default:
+      return {};
   }
   return configParams;
 }
@@ -4603,42 +4616,63 @@ function buildClashWarpOutbound(warpConfigs, remark, endpoint, chain, isPro) {
 __name(buildClashWarpOutbound, "buildClashWarpOutbound");
 function buildClashChainOutbound() {
   const { outProxyParams } = settings;
-  const { protocol } = outProxyParams;
-  if (["socks", "http"].includes(protocol)) {
-    const { protocol: protocol2, server: server2, port: port2, user, pass } = outProxyParams;
-    const proxyType = protocol2 === "socks" ? "socks5" : protocol2;
-    return {
-      "name": "",
-      "type": proxyType,
-      "server": server2,
-      "port": +port2,
-      "dialer-proxy": "",
-      "username": user,
-      "password": pass
-    };
-  }
-  const { server, port, uuid, flow, security, type, sni, fp, alpn, pbk, sid, headerType, host, path, serviceName } = outProxyParams;
-  const chainOutbound = {
-    "name": "\u{1F4A6} Chain Best Ping \u{1F4A5}",
-    "type": atob("dmxlc3M="),
+  const { protocol, server, port } = outProxyParams;
+  const outbound = {
+    "name": "",
+    "type": protocol,
     "server": server,
-    "port": +port,
-    "udp": true,
-    "uuid": uuid,
-    "flow": flow,
-    "network": type,
-    "dialer-proxy": "\u{1F4A6} Best Ping \u{1F4A5}"
+    "port": port,
+    "dialer-proxy": ""
   };
+  if (["socks", "http"].includes(protocol)) {
+    const { user, pass } = outProxyParams;
+    outbound["username"] = user;
+    outbound["password"] = pass;
+    if (protocol === "socks") {
+      outbound["type"] = "socks5";
+    }
+    return outbound;
+  }
+  if (protocol === atob("c2hhZG93c29ja3M=")) {
+    const { password, method } = outProxyParams;
+    outbound["cipher"] = method;
+    outbound["password"] = password;
+    outbound["type"] = "ss";
+    return outbound;
+  }
+  const {
+    security,
+    type,
+    sni,
+    fp,
+    alpn,
+    pbk,
+    sid,
+    headerType,
+    host,
+    path,
+    serviceName
+  } = outProxyParams;
+  if (protocol === atob("dmxlc3M=")) {
+    const { uuid, flow } = outProxyParams;
+    outbound["uuid"] = uuid;
+    outbound["flow"] = flow;
+    outbound["network"] = type;
+  }
+  if (protocol === atob("dHJvamFu")) {
+    const { password } = outProxyParams;
+    outbound["password"] = password;
+  }
   if (security === "tls") {
     const tlsAlpns = alpn ? alpn?.split(",") : [];
-    Object.assign(chainOutbound, {
+    Object.assign(outbound, {
       "tls": true,
       "servername": sni,
       "alpn": tlsAlpns,
       "client-fingerprint": fp
     });
   }
-  if (security === "reality") Object.assign(chainOutbound, {
+  if (security === "reality") Object.assign(outbound, {
     "tls": true,
     "servername": sni,
     "client-fingerprint": fp,
@@ -4649,7 +4683,7 @@ function buildClashChainOutbound() {
   });
   if (headerType === "http") {
     const httpPaths = path?.split(",");
-    chainOutbound["http-opts"] = {
+    outbound["http-opts"] = {
       "method": "GET",
       "path": httpPaths,
       "headers": {
@@ -4658,10 +4692,10 @@ function buildClashChainOutbound() {
       }
     };
   }
-  if (type === "ws") {
+  if (type === "ws" || type === "httpupgrade") {
     const wsPath = path?.split("?ed=")[0];
     const earlyData = +path?.split("?ed=")[1];
-    chainOutbound["ws-opts"] = {
+    outbound["ws-opts"] = {
       "path": wsPath,
       "headers": {
         "Host": host
@@ -4669,11 +4703,14 @@ function buildClashChainOutbound() {
       "max-early-data": earlyData,
       "early-data-header-name": "Sec-WebSocket-Protocol"
     };
+    if (type === "httpupgrade") {
+      outbound["ws-opts"]["v2ray-http-upgrade"] = true;
+    }
   }
-  if (type === "grpc") chainOutbound["grpc-opts"] = {
+  if (type === "grpc") outbound["grpc-opts"] = {
     "grpc-service-name": serviceName
   };
-  return chainOutbound;
+  return outbound;
 }
 __name(buildClashChainOutbound, "buildClashChainOutbound");
 async function buildClashConfig(selectorTags, urlTestTags, secondUrlTestTags, isChain, isWarp, isPro) {
@@ -5513,36 +5550,54 @@ function buildSingBoxWarpOutbound(warpConfigs, remark, endpoint, chain) {
 __name(buildSingBoxWarpOutbound, "buildSingBoxWarpOutbound");
 function buildSingBoxChainOutbound() {
   const { outProxyParams } = settings;
-  const { protocol } = outProxyParams;
-  if (["socks", "http"].includes(protocol)) {
-    const { server: server2, port: port2, user, pass } = outProxyParams;
-    const chainOutbound2 = {
-      type: protocol,
-      tag: "",
-      server: server2,
-      server_port: +port2,
-      username: user,
-      password: pass,
-      detour: ""
-    };
-    if (protocol === "socks") {
-      chainOutbound2.version = "5";
-    }
-    return chainOutbound2;
-  }
-  const { server, port, uuid, flow, security, type, sni, fp, alpn, pbk, sid, headerType, host, path, serviceName } = outProxyParams;
-  const chainOutbound = {
-    type: atob("dmxlc3M="),
+  const { protocol, server, port } = outProxyParams;
+  const outbound = {
+    type: protocol,
     tag: "",
     server,
-    server_port: +port,
-    uuid,
-    flow,
+    server_port: port,
     detour: ""
   };
+  if (["socks", "http"].includes(protocol)) {
+    const { user, pass } = outProxyParams;
+    outbound.username = user;
+    outbound.password = pass;
+    if (protocol === "socks") {
+      outbound.version = "5";
+    }
+    return outbound;
+  }
+  if (protocol === atob("c2hhZG93c29ja3M=")) {
+    const { password, method } = outProxyParams;
+    outbound.method = method;
+    outbound.password = password;
+    return outbound;
+  }
+  if (protocol === atob("dmxlc3M=")) {
+    const { uuid, flow } = outProxyParams;
+    outbound.uuid = uuid;
+    outbound.flow = flow;
+  }
+  if (protocol === atob("dHJvamFu")) {
+    const { password } = outProxyParams;
+    outbound.password = password;
+  }
+  const {
+    security,
+    type,
+    sni,
+    fp,
+    alpn,
+    pbk,
+    sid,
+    headerType,
+    host,
+    path,
+    serviceName
+  } = outProxyParams;
   if (security === "tls" || security === "reality") {
     const tlsAlpns = alpn ? alpn?.split(",").filter((value) => value !== "h2") : [];
-    chainOutbound.tls = {
+    outbound.tls = {
       enabled: true,
       server_name: sni,
       insecure: false,
@@ -5553,17 +5608,17 @@ function buildSingBoxChainOutbound() {
       }
     };
     if (security === "reality") {
-      chainOutbound.tls.reality = {
+      outbound.tls.reality = {
         enabled: true,
         public_key: pbk,
         short_id: sid
       };
-      delete chainOutbound.tls.alpn;
+      delete outbound.tls.alpn;
     }
   }
   if (headerType === "http") {
     const httpHosts = host?.split(",");
-    chainOutbound.transport = {
+    outbound.transport = {
       type: "http",
       host: httpHosts,
       path,
@@ -5574,22 +5629,22 @@ function buildSingBoxChainOutbound() {
       }
     };
   }
-  if (type === "ws") {
-    const wsPath = path?.split("?ed=")[0];
+  if (type === "ws" || type === "httpupgrade") {
+    const configPath = path?.split("?ed=")[0];
     const earlyData = +path?.split("?ed=")[1] || 0;
-    chainOutbound.transport = {
-      type: "ws",
-      path: wsPath,
+    outbound.transport = {
+      type,
+      path: configPath,
       headers: { Host: host },
       max_early_data: earlyData,
       early_data_header_name: "Sec-WebSocket-Protocol"
     };
   }
-  if (type === "grpc") chainOutbound.transport = {
+  if (type === "grpc") outbound.transport = {
     type: "grpc",
     service_name: serviceName
   };
-  return chainOutbound;
+  return outbound;
 }
 __name(buildSingBoxChainOutbound, "buildSingBoxChainOutbound");
 async function buildSingBoxConfig(selectorTags, urlTestTags, secondUrlTestTags, isWarp, isIPv62) {
@@ -6101,7 +6156,8 @@ function buildXrayRoutingRules(isChain, isBalancer, isWorkerLess, isWarp) {
   }), "addRoutingRule");
   const finallOutboundTag = isChain ? "chain" : isWorkerLess ? "direct" : "proxy";
   const outTag = isBalancer ? "all" : finallOutboundTag;
-  addRoutingRule(["remote-dns"], null, null, null, null, null, outTag, isBalancer);
+  const remoteDnsProxy = isBalancer ? "all" : isChain ? "chain" : "proxy";
+  addRoutingRule(["remote-dns"], null, null, null, null, null, remoteDnsProxy, isBalancer);
   addRoutingRule(["dns"], null, null, null, null, null, "direct");
   if (settings.bypassLAN) {
     addRoutingRule(null, ["geosite:private"], null, null, null, null, "direct");
@@ -6321,49 +6377,87 @@ function buildXrayWarpOutbound(warpConfigs, endpoint, isWoW, isPro) {
 __name(buildXrayWarpOutbound, "buildXrayWarpOutbound");
 function buildXrayChainOutbound() {
   const { outProxyParams, VLTRenableIPv6 } = settings;
-  const { protocol } = outProxyParams;
+  const { protocol, security, type, server, port } = outProxyParams;
+  const outbound = {
+    protocol,
+    mux: {
+      enabled: true,
+      concurrency: 8,
+      xudpConcurrency: 16,
+      xudpProxyUDP443: "reject"
+    },
+    settings: {},
+    streamSettings: {
+      network: type || "raw",
+      security,
+      sockopt: {
+        dialerProxy: "proxy",
+        domainStrategy: VLTRenableIPv6 ? "UseIPv4v6" : "UseIPv4"
+      }
+    },
+    tag: "chain"
+  };
   if (["socks", "http"].includes(protocol)) {
-    const { server: server2, port: port2, user, pass } = outProxyParams;
-    return {
-      protocol,
-      settings: {
-        servers: [
+    const { user, pass } = outProxyParams;
+    outbound.settings.servers = [
+      {
+        address: server,
+        port,
+        users: [
           {
-            address: server2,
-            port: +port2,
-            users: [
-              {
-                user,
-                pass,
-                level: 8
-              }
-            ]
+            user,
+            pass,
+            level: 8
           }
         ]
-      },
-      streamSettings: {
-        network: "tcp",
-        sockopt: {
-          dialerProxy: "proxy",
-          domainStrategy: VLTRenableIPv6 ? "UseIPv4v6" : "UseIPv4"
-        }
-      },
-      mux: {
-        enabled: true,
-        concurrency: 8,
-        xudpConcurrency: 16,
-        xudpProxyUDP443: "reject"
-      },
-      tag: "chain"
-    };
+      }
+    ];
+    return outbound;
+  }
+  if (protocol === atob("c2hhZG93c29ja3M=")) {
+    const { password, method } = outProxyParams;
+    outbound.settings.servers = [
+      {
+        address: server,
+        method,
+        ota: false,
+        password,
+        port,
+        level: 8
+      }
+    ];
+    return outbound;
+  }
+  if (protocol === atob("dmxlc3M=")) {
+    const { uuid, flow } = outProxyParams;
+    outbound.settings.vnext = [
+      {
+        address: server,
+        port,
+        users: [
+          {
+            encryption: "none",
+            flow,
+            id: uuid,
+            level: 8,
+            security: "auto"
+          }
+        ]
+      }
+    ];
+  }
+  if (protocol === atob("dHJvamFu")) {
+    const { password } = outProxyParams;
+    outbound.settings.servers = [
+      {
+        address: server,
+        port,
+        password,
+        level: 8
+      }
+    ];
   }
   const {
-    server,
-    port,
-    uuid,
-    flow,
-    security,
-    type,
     sni,
     fp,
     alpn,
@@ -6377,44 +6471,9 @@ function buildXrayChainOutbound() {
     serviceName,
     mode
   } = outProxyParams;
-  const proxyOutbound = {
-    mux: {
-      concurrency: 8,
-      enabled: true,
-      xudpConcurrency: 16,
-      xudpProxyUDP443: "reject"
-    },
-    protocol: atob("dmxlc3M="),
-    settings: {
-      vnext: [
-        {
-          address: server,
-          port: +port,
-          users: [
-            {
-              encryption: "none",
-              flow,
-              id: uuid,
-              level: 8,
-              security: "auto"
-            }
-          ]
-        }
-      ]
-    },
-    streamSettings: {
-      network: type,
-      security,
-      sockopt: {
-        dialerProxy: "proxy",
-        domainStrategy: VLTRenableIPv6 ? "UseIPv4v6" : "UseIPv4"
-      }
-    },
-    tag: "chain"
-  };
   if (security === "tls") {
     const tlsAlpns = alpn ? alpn?.split(",") : [];
-    proxyOutbound.streamSettings.tlsSettings = {
+    outbound.streamSettings.tlsSettings = {
       allowInsecure: false,
       fingerprint: fp,
       alpn: tlsAlpns,
@@ -6422,8 +6481,8 @@ function buildXrayChainOutbound() {
     };
   }
   if (security === "reality") {
-    delete proxyOutbound.mux;
-    proxyOutbound.streamSettings.realitySettings = {
+    delete outbound.mux;
+    outbound.streamSettings.realitySettings = {
       fingerprint: fp,
       publicKey: pbk,
       serverName: sni,
@@ -6434,7 +6493,7 @@ function buildXrayChainOutbound() {
   if (headerType === "http") {
     const httpPaths = path?.split(",");
     const httpHosts = host?.split(",");
-    proxyOutbound.streamSettings.tcpSettings = {
+    outbound.streamSettings.tcpSettings = {
       header: {
         request: {
           headers: { Host: httpHosts },
@@ -6452,24 +6511,28 @@ function buildXrayChainOutbound() {
       }
     };
   }
-  if (type === "tcp" && security !== "reality" && !headerType) proxyOutbound.streamSettings.tcpSettings = {
+  if (["tcp", "raw"].includes(type) && security !== "reality" && !headerType) outbound.streamSettings.tcpSettings = {
     header: {
       type: "none"
     }
   };
-  if (type === "ws") proxyOutbound.streamSettings.wsSettings = {
+  if (type === "ws") outbound.streamSettings.wsSettings = {
+    host,
+    path
+  };
+  if (type === "httpupgrade") outbound.streamSettings.httpupgradeSettings = {
     host,
     path
   };
   if (type === "grpc") {
-    delete proxyOutbound.mux;
-    proxyOutbound.streamSettings.grpcSettings = {
+    delete outbound.mux;
+    outbound.streamSettings.grpcSettings = {
       authority,
       multiMode: mode === "multi",
       serviceName
     };
   }
-  return proxyOutbound;
+  return outbound;
 }
 __name(buildXrayChainOutbound, "buildXrayChainOutbound");
 function buildFreedomOutbound(isFragment, isUdpNoises, tag2, length, interval) {
