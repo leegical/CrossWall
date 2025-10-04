@@ -4312,38 +4312,46 @@ async function updateDataset(request, env) {
 __name(updateDataset, "updateDataset");
 function extractChainProxyParams(chainProxy) {
   if (!chainProxy) return {};
-  const url = new URL(chainProxy);
-  const protocol = url.protocol.slice(0, -1);
+  const {
+    hostname,
+    port,
+    username,
+    password,
+    search,
+    protocol
+  } = new URL(chainProxy);
+  const proto = protocol.slice(0, -1);
   let configParams = {
-    protocol: protocol === "ss" ? atob("c2hhZG93c29ja3M=") : protocol,
-    server: url.hostname,
-    port: +url.port
+    protocol: proto === "ss" ? atob("c2hhZG93c29ja3M=") : proto,
+    server: hostname,
+    port: +port
   };
   const parseParams = /* @__PURE__ */ __name(() => {
-    const params = new URLSearchParams(url.search);
-    for (const [key, value] of params.entries()) {
+    const params = new URLSearchParams(search);
+    for (const [key, value] of params) {
       configParams[key] = value;
     }
   }, "parseParams");
-  switch (protocol) {
+  switch (proto) {
     case atob("dmxlc3M="):
-      configParams.uuid = url.username;
+      configParams.uuid = username;
       parseParams();
       break;
     case atob("dHJvamFu"):
-      configParams.password = url.username;
+      configParams.password = username;
       parseParams();
       break;
-    case "ss":
-      const auth = new TextDecoder().decode(Uint8Array.from(atob(url.username), (c) => c.charCodeAt(0)));
+    case atob("c3M="):
+      const auth = new TextDecoder().decode(Uint8Array.from(atob(username), (c) => c.charCodeAt(0)));
       const [first, ...rest] = auth.split(":");
       configParams.method = first;
       configParams.password = rest.join(":");
+      parseParams();
       break;
-    case "socks":
+    case atob("c29ja3M="):
     case "http":
-      configParams.user = url.username;
-      configParams.pass = url.password;
+      configParams.user = username;
+      configParams.pass = password;
       break;
     default:
       return {};
@@ -4624,12 +4632,12 @@ function buildClashChainOutbound() {
     "port": port,
     "dialer-proxy": ""
   };
-  if (["socks", "http"].includes(protocol)) {
+  if ([atob("c29ja3M="), "http"].includes(protocol)) {
     const { user, pass } = outProxyParams;
     outbound["username"] = user;
     outbound["password"] = pass;
-    if (protocol === "socks") {
-      outbound["type"] = "socks5";
+    if (protocol === atob("c29ja3M=")) {
+      outbound["type"] = atob("c29ja3M1");
     }
     return outbound;
   }
@@ -4637,7 +4645,7 @@ function buildClashChainOutbound() {
     const { password, method } = outProxyParams;
     outbound["cipher"] = method;
     outbound["password"] = password;
-    outbound["type"] = "ss";
+    outbound["type"] = atob("c3M=");
     return outbound;
   }
   const {
@@ -4704,7 +4712,7 @@ function buildClashChainOutbound() {
       "early-data-header-name": "Sec-WebSocket-Protocol"
     };
     if (type === "httpupgrade") {
-      outbound["ws-opts"]["v2ray-http-upgrade"] = true;
+      outbound["ws-opts"][`${atob("djJyYXk=")}-http-upgrade`] = true;
     }
   }
   if (type === "grpc") outbound["grpc-opts"] = {
@@ -5558,11 +5566,11 @@ function buildSingBoxChainOutbound() {
     server_port: port,
     detour: ""
   };
-  if (["socks", "http"].includes(protocol)) {
+  if ([atob("c29ja3M="), "http"].includes(protocol)) {
     const { user, pass } = outProxyParams;
     outbound.username = user;
     outbound.password = pass;
-    if (protocol === "socks") {
+    if (protocol === atob("c29ja3M=")) {
       outbound.version = "5";
     }
     return outbound;
@@ -6397,7 +6405,7 @@ function buildXrayChainOutbound() {
     },
     tag: "chain"
   };
-  if (["socks", "http"].includes(protocol)) {
+  if ([atob("c29ja3M="), "http"].includes(protocol)) {
     const { user, pass } = outProxyParams;
     outbound.settings.servers = [
       {
@@ -6840,7 +6848,7 @@ var xrayConfigTemp = {
   inbounds: [
     {
       port: 10808,
-      protocol: "mixed",
+      protocol: "socks",
       settings: {
         auth: "noauth",
         udp: true,
